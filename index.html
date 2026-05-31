@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Schwarz Meal Planner</title>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a22;
+    --surface2: #24242f;
+    --accent: #e87040;
+    --accent2: #f5a623;
+    --green: #4caf7d;
+    --red: #e05555;
+    --text: #f0ede8;
+    --text2: #9996a0;
+    --radius: 18px;
+    --card-w: min(88vw, 360px);
+    --card-h: min(72vh, 540px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100dvh; overflow: hidden; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 20px; transition: opacity .3s, transform .3s; }
+  .screen.hidden { opacity: 0; pointer-events: none; transform: translateY(20px); }
+  #pin-screen { background: var(--bg); gap: 32px; }
+  .logo { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .subtitle { color: var(--text2); font-size: 14px; text-align: center; }
+  .pin-display { display: flex; gap: 14px; }
+  .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--text2); transition: background .2s, border-color .2s; }
+  .pin-dot.filled { background: var(--accent); border-color: var(--accent); }
+  .pin-keypad { display: grid; grid-template-columns: repeat(3, 72px); gap: 12px; }
+  .pin-key { height: 72px; border-radius: 50%; background: var(--surface2); border: none; color: var(--text); font-size: 22px; font-weight: 600; cursor: pointer; transition: background .15s, transform .1s; }
+  .pin-key:active { background: var(--accent); transform: scale(.92); }
+  .pin-key.del { font-size: 18px; }
+  .pin-error { color: var(--red); font-size: 13px; height: 18px; }
+  #swipe-screen { background: var(--bg); padding: 0; }
+  .swipe-header { position: absolute; top: 0; left: 0; right: 0; padding: 16px 20px 12px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+  .swipe-header .logo-sm { font-size: 18px; font-weight: 800; }
+  .swipe-header .logo-sm span { color: var(--accent); }
+  .picks-badge { background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px; cursor: pointer; }
+  .card-stack { position: relative; width: var(--card-w); height: var(--card-h); }
+  .recipe-card { position: absolute; inset: 0; border-radius: var(--radius); overflow: hidden; background: var(--surface); box-shadow: 0 8px 32px rgba(0,0,0,.5); cursor: grab; user-select: none; touch-action: none; }
+  .recipe-card.dragging { cursor: grabbing; box-shadow: 0 16px 48px rgba(0,0,0,.7); }
+  .recipe-card.fly-left  { animation: flyLeft .35s ease-in forwards; }
+  .recipe-card.fly-right { animation: flyRight .35s ease-in forwards; }
+  @keyframes flyLeft  { to { transform: translateX(-150vw) rotate(-25deg); opacity: 0; } }
+  @keyframes flyRight { to { transform: translateX(150vw)  rotate( 25deg); opacity: 0; } }
+  .card-img { width: 100%; height: 62%; object-fit: cover; display: block; background: var(--surface2); }
+  .card-img-placeholder { width: 100%; height: 62%; display: flex; align-items: center; justify-content: center; font-size: 48px; background: var(--surface2); }
+  .card-body { padding: 14px 16px; }
+  .card-name { font-size: 17px; font-weight: 700; line-height: 1.25; }
+  .card-sub  { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; background: var(--surface2); color: var(--text2); }
+  .chip.protein { background: rgba(232,112,64,.18); color: var(--accent); }
+  .chip.time    { background: rgba(245,166,35,.15); color: var(--accent2); }
+  .chip.chip-pdf { background: rgba(100,180,255,.15); color: #64b4ff; text-decoration: none; cursor: pointer; }
+  .stamp { position: absolute; top: 24px; padding: 6px 14px; border-radius: 8px; font-size: 22px; font-weight: 900; letter-spacing: 2px; border: 3px solid; opacity: 0; pointer-events: none; }
+  .stamp-yes { left: 16px; color: var(--green); border-color: var(--green); transform: rotate(-15deg); }
+  .stamp-no  { right: 16px; color: var(--red);   border-color: var(--red);   transform: rotate(15deg); }
+  .swipe-actions { display: flex; gap: 24px; margin-top: 20px; }
+  .action-btn { width: 62px; height: 62px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; transition: transform .15s; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+  .action-btn:active { transform: scale(.88); }
+  .btn-skip { background: var(--surface2); color: var(--red); }
+  .btn-pick { background: var(--accent); color: #fff; }
+  .btn-undo { background: var(--surface2); color: var(--text2); font-size: 18px; }
+  .swipe-progress { font-size: 12px; color: var(--text2); margin-top: 12px; }
+  .empty-deck { text-align: center; color: var(--text2); font-size: 15px; padding: 40px 20px; }
+  .empty-deck .big { font-size: 48px; margin-bottom: 12px; }
+  .view-picks-btn { margin-top: 20px; background: var(--accent); color: #fff; border: none; padding: 14px 36px; border-radius: 50px; font-size: 16px; font-weight: 700; cursor: pointer; }
+  #picks-screen { background: var(--bg); justify-content: flex-start; padding-top: 60px; overflow: hidden; }
+  .screen-header { width: 100%; display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .back-btn { background: var(--surface2); border: none; color: var(--text); font-size: 20px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .screen-title { font-size: 20px; font-weight: 800; }
+  .picks-list { width: 100%; overflow-y: auto; flex: 1; padding-bottom: 100px; }
+  .pick-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+  .pick-thumb { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; background: var(--surface2); flex-shrink: 0; }
+  .pick-info { flex: 1; min-width: 0; }
+  .pick-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pick-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .pick-remove { background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; padding: 4px; flex-shrink: 0; }
+  .picks-footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 16px 20px 28px; background: linear-gradient(transparent, var(--bg) 40%); display: flex; gap: 10px; }
+  .btn-primary { flex: 1; background: var(--accent); color: #fff; border: none; padding: 15px; border-radius: 50px; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .btn-secondary { flex: 1; background: var(--surface2); color: var(--text); border: none; padding: 15px; border-radius: 50px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .empty-picks { text-align: center; color: var(--text2); margin-top: 60px; font-size: 15px; }
+  #shop-screen { background: var(--bg); justify-content: flex-start; padding-top: 60px; overflow: hidden; }
+  .shop-list { width: 100%; overflow-y: auto; flex: 1; padding-bottom: 120px; }
+  .shop-group { margin-bottom: 20px; }
+  .shop-group-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); margin-bottom: 8px; padding: 0 4px; }
+  .shop-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; background: var(--surface); margin-bottom: 6px; cursor: pointer; }
+  .shop-item.checked .shop-item-text { text-decoration: none; color: var(--text); }
+  .shop-check { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--text2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: background .15s, border-color .15s; }
+  .shop-check.on { background: var(--green); border-color: var(--green); }
+  .shop-check.on::after { content: '✓'; color: #fff; font-size: 13px; font-weight: 700; }
+  .shop-item-text { font-size: 15px; text-decoration: line-through; color: var(--text2); }
+  .shop-footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 16px 20px 28px; background: linear-gradient(transparent, var(--bg) 40%); }
+  .shop-summary { font-size: 12px; color: var(--text2); text-align: center; margin-bottom: 10px; }
+  #send-screen { background: var(--bg); gap: 20px; }
+  .send-icon { font-size: 56px; }
+  .send-title { font-size: 22px; font-weight: 800; }
+  .send-sub { font-size: 14px; color: var(--text2); text-align: center; max-width: 280px; line-height: 1.5; }
+  .send-emails { background: var(--surface); border-radius: 12px; padding: 14px 16px; width: 100%; max-width: 340px; }
+  .email-row { font-size: 13px; padding: 4px 0; color: var(--text2); }
+  .email-row span { color: var(--text); font-weight: 500; }
+  .btn-send { background: var(--accent); color: #fff; border: none; padding: 16px 48px; border-radius: 50px; font-size: 17px; font-weight: 700; cursor: pointer; width: 100%; max-width: 340px; }
+  .btn-send:disabled { opacity: .5; cursor: default; }
+  .send-status { font-size: 14px; color: var(--text2); text-align: center; height: 20px; }
+  .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface2); color: var(--text); padding: 10px 20px; border-radius: 30px; font-size: 14px; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; z-index: 999; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .category-filter { position: absolute; top: 54px; left: 0; right: 0; display: flex; gap: 8px; padding: 8px 16px; overflow-x: auto; z-index: 10; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .category-filter::-webkit-scrollbar { display: none; }
+  .cat-chip { flex-shrink: 0; padding: 6px 14px; border-radius: 20px; border: none; background: var(--surface2); color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+  .cat-chip.active { background: var(--accent); color: #fff; }
+  .card-stack { margin-top: 88px; }
+  #prefs-screen { background: var(--bg); gap: 0; justify-content: flex-start; padding-top: 48px; }
+  .prefs-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; max-width: 380px; padding: 0 20px; }
+  .prefs-subtitle { font-size: 15px; color: var(--text2); text-align: center; line-height: 1.5; }
+  .prefs-section-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text2); align-self: flex-start; }
+  .protein-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .pref-toggle { padding: 10px 18px; border-radius: 50px; border: 2px solid var(--surface2); background: var(--surface); color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; transition: all .15s; }
+  .pref-toggle.active { border-color: var(--accent); background: rgba(232,112,64,.15); color: var(--accent); }
+  .pref-toggle.excluded { border-color: var(--surface2); background: var(--surface2); color: var(--text2); opacity: .5; text-decoration: line-through; }
+  .prefs-count { font-size: 13px; color: var(--text2); text-align: center; }
+  .prefs-count strong { color: var(--text); font-size: 15px; }
+  .gear-btn { background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; padding: 4px 8px; line-height: 1; }
+  .prefs-tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 12px; padding: 4px; width: 100%; }
+  .prefs-tab { flex: 1; padding: 8px; border-radius: 9px; border: none; background: none; color: var(--text2); font-size: 14px; font-weight: 600; cursor: pointer; transition: all .15s; }
+  .prefs-tab.active { background: var(--surface); color: var(--text); }
+  .time-filter { position: absolute; top: 94px; left: 0; right: 0; display: flex; gap: 8px; padding: 8px 16px; overflow-x: auto; z-index: 10; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .time-filter::-webkit-scrollbar { display: none; }
+  .time-chip { flex-shrink: 0; padding: 5px 12px; border-radius: 20px; border: none; background: var(--surface2); color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+  .time-chip.active { background: var(--accent2); color: #000; }
+</style>
+</head>
+<body>
+
+<div id="pin-screen" class="screen">
+  <div class="logo">Schwarz <span>Eats</span></div>
+  <div class="subtitle">Enter your PIN to start planning</div>
+  <div class="pin-display" id="pin-display">
+    <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="pin-keypad">
+    <button class="pin-key" data-k="1">1</button><button class="pin-key" data-k="2">2</button><button class="pin-key" data-k="3">3</button>
+    <button class="pin-key" data-k="4">4</button><button class="pin-key" data-k="5">5</button><button class="pin-key" data-k="6">6</button>
+    <button class="pin-key" data-k="7">7</button><button class="pin-key" data-k="8">8</button><button class="pin-key" data-k="9">9</button>
+    <button class="pin-key" data-k=""></button><button class="pin-key" data-k="0">0</button><button class="pin-key del" data-k="del">⌫</button>
+  </div>
+  <div class="pin-error" id="pin-error"></div>
+</div>
+
+<div id="prefs-screen" class="screen hidden">
+  <div class="prefs-inner">
+    <div class="logo">Schwarz <span>Eats</span></div>
+    <div class="prefs-subtitle">Choose what to include.<br>Toggle off anything you never want to see.</div>
+    <div class="prefs-tabs">
+      <button class="prefs-tab active" id="tab-proteins" onclick="renderPrefsScreen('proteins')">Proteins</button>
+      <button class="prefs-tab" id="tab-dish" onclick="renderPrefsScreen('dish')">Dish Types</button>
+    </div>
+    <div id="pref-toggles-container" class="protein-grid"></div>
+    <div id="prefs-count" class="prefs-count"></div>
+    <button class="big-btn btn-primary" style="width:100%;padding:15px;border-radius:50px;font-size:16px;font-weight:700;border:none;cursor:pointer;background:var(--accent);color:#fff;" onclick="applyPrefsAndSwipe()">Start Swiping &#8594;</button>
+  </div>
+</div>
+
+<div id="swipe-screen" class="screen hidden">
+  <div class="swipe-header">
+    <div class="logo-sm">Schwarz <span>Eats</span></div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button class="gear-btn" onclick="showPrefs()" title="Edit preferences">&#9881;</button>
+      <div class="picks-badge" id="picks-badge" onclick="showPicks()">0 picked</div>
+    </div>
+  </div>
+  <div class="category-filter" id="category-filter">
+    <button class="cat-chip active" data-cat="all" onclick="selectCategory(this)">All</button>
+    <button class="cat-chip" data-cat="american" onclick="selectCategory(this)">🇺🇸 American</button>
+    <button class="cat-chip" data-cat="asian" onclick="selectCategory(this)">🍜 Asian</button>
+    <button class="cat-chip" data-cat="mexican" onclick="selectCategory(this)">🌮 Mexican</button>
+    <button class="cat-chip" data-cat="italian" onclick="selectCategory(this)">🍝 European</button>
+    <button class="cat-chip" data-cat="mediterranean" onclick="selectCategory(this)">🥙 Mediterranean</button>
+  </div>
+  <div class="time-filter" id="time-filter">
+    <button class="time-chip active" data-t="0" onclick="selectTime(this)">All times</button>
+    <button class="time-chip" data-t="30" onclick="selectTime(this)">&#9889; &#8804;30 min</button>
+    <button class="time-chip" data-t="45" onclick="selectTime(this)">&#8987; &#8804;45 min</button>
+  </div>
+  <div class="card-stack" id="card-stack"></div>
+  <div class="swipe-actions">
+    <button class="action-btn btn-undo" onclick="undoSwipe()">↩</button>
+    <button class="action-btn btn-skip" onclick="swipeCard('left')">✕</button>
+    <button class="action-btn btn-pick" onclick="swipeCard('right')">♥</button>
+  </div>
+  <div class="swipe-progress" id="swipe-progress"></div>
+</div>
+
+<div id="picks-screen" class="screen hidden">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showSwipe()">←</button>
+    <div class="screen-title">This Week's Menu</div>
+  </div>
+  <div class="picks-list" id="picks-list"></div>
+  <div class="picks-footer">
+    <button class="btn-secondary" onclick="showSwipe()">Keep swiping</button>
+    <button class="btn-primary" onclick="showShop()">Shopping list →</button>
+  </div>
+</div>
+
+<div id="shop-screen" class="screen hidden">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showPicks()">←</button>
+    <div class="screen-title">Shopping List</div>
+  </div>
+  <div class="shop-list" id="shop-list"></div>
+  <div class="shop-footer">
+    <div class="shop-summary" id="shop-summary"></div>
+    <button class="btn-primary" onclick="showSend()">Send to email →</button>
+  </div>
+</div>
+
+<div id="send-screen" class="screen hidden">
+  <div class="send-icon">✉️</div>
+  <div class="send-title">Ready to send!</div>
+  <div class="send-sub">We'll email your meal plan and shopping list to both of you.</div>
+  <div class="send-emails">
+    <div class="email-row">📬 <span id="email1-display"></span></div>
+    <div class="email-row">📬 <span id="email2-display"></span></div>
+  </div>
+  <button class="btn-send" id="send-btn" onclick="sendEmail()">Send now</button>
+  <div class="send-status" id="send-status"></div>
+  <button class="btn-secondary" style="max-width:340px;width:100%;margin-top:8px" onclick="showShop()">← Back to list</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="recipes.js"></script>
+<script>
+const PIN = "1215";
+const EMAIL_1 = "parkerschwarz@gmail.com";
+const EMAIL_2 = "allen.natalie9@gmail.com";
+const N8N_WEBHOOK = "https://parkerschwarz.app.n8n.cloud/webhook/schwarz-eats-meal-plan";
+
+let pinInput = '';
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+let excludedGroups = new Set();
+let excludedDishTypes = new Set();
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem('mealplanner_prefs');
+    if (!raw) return;
+    const prefs = JSON.parse(raw);
+    excludedGroups = new Set(prefs.excludedGroups || []);
+    excludedDishTypes = new Set(prefs.excludedDishTypes || []);
+  } catch(e) { excludedGroups = new Set(); excludedDishTypes = new Set(); }
+}
+function savePrefs() {
+  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 2, excludedGroups: [...excludedGroups], excludedDishTypes: [...excludedDishTypes] }));
+}
+loadPrefs();
+let deck = [];
+let history = [];
+let picks = [];
+let checkedItems = new Set();
+let currentCardEl = null;
+let deckIndex = 0;
+let selectedCategory = 'all';
+let selectedMaxTime = null;
+let shopInitialized = false;
+
+const CATEGORY_MAP = {
+  american:     /american|bbq|steakhouse|british|north.?ameri/i,
+  asian:        /asian|korean|japanese|vietnamese|chinese|indian|thai|south.?asia|east.?asia/i,
+  mexican:      /mexican|latin|peruvian|tex-mex|central.?ameri|caribbean|cuban/i,
+  italian:      /italian|southern.?europ|western.?europ|european|german|spanish|french|northern.?europ/i,
+  mediterranean:/mediterranean|middle.?east|greek|north.?afri|african|moroccan/i,
+};
+
+const PROTEIN_GROUPS = {
+  chicken: { label: 'Chicken',        values: /^Chicken$/i },
+  pork:    { label: 'Pork',           values: /^Pork$/i },
+  beef:    { label: 'Beef',           values: /^Beef$/i },
+  veggie:  { label: 'Veggie / Vegan', values: /^(Veggie|Vegan|Vegetarian|Plant-Based|Tofu)$/i },
+  fish:    { label: 'Fish & Seafood', values: /^(Salmon|Shrimp|Cod|Tilapia|Tuna|Fish|Crab|Scallop|Lobster)$/i },
+  other:   { label: 'Other / Turkey', values: /^(Other|Turkey|Duck|Lamb)$/i },
+};
+
+const DISH_TYPE_GROUPS = {
+  bowl:    { label: 'Bowls',               values: /\bbowl\b/i },
+  salad:   { label: 'Salads',              values: /\bsalad\b/i },
+  soup:    { label: 'Soups & Stews',       values: /\b(soup|stew|chowder|bisque)\b/i },
+  pasta:   { label: 'Pasta & Noodles',     values: /\b(pasta|noodle|spaghetti|linguine|fettuccine|penne|rigatoni|cavatappi|tortelloni|ravioli)\b/i },
+  tacos:   { label: 'Tacos & Wraps',       values: /\b(taco|burrito|wrap|quesadilla|fajita)\b/i },
+  stirfry: { label: 'Stir-Fry',           values: /\bstir.?fry\b/i },
+  onepot:  { label: 'One-Pot / Sheet Pan', values: /\b(one.?pot|one.?pan|sheet.?pan)\b/i },
+  pizza:   { label: 'Pizza & Flatbread',   values: /\b(pizza|flatbread)\b/i },
+};
+
+function buildDeck() {
+  let pool = [...RECIPES];
+  if (excludedGroups.size > 0) {
+    pool = pool.filter(r => {
+      if (!r.protein) return true;
+      for (const key of excludedGroups) {
+        if (PROTEIN_GROUPS[key].values.test(r.protein)) return false;
+      }
+      return true;
+    });
+  }
+  if (excludedDishTypes.size > 0) {
+    pool = pool.filter(r => {
+      const text = r.name + ' ' + (r.subtitle || '');
+      for (const key of excludedDishTypes) {
+        if (DISH_TYPE_GROUPS[key].values.test(text)) return false;
+      }
+      return true;
+    });
+  }
+  if (selectedCategory !== 'all') {
+    const re = CATEGORY_MAP[selectedCategory];
+    pool = pool.filter(r => r.cuisine && re.test(r.cuisine));
+  }
+  if (selectedMaxTime) {
+    pool = pool.filter(r => {
+      const total = (r.prepMin || 0) + (r.cookMin || 0);
+      return total > 0 && total <= selectedMaxTime;
+    });
+  }
+  deck = shuffle(pool);
+  deckIndex = 0;
+  history = [];
+  shopInitialized = false;
+}
+
+function selectCategory(btn) {
+  document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  selectedCategory = btn.dataset.cat;
+  buildDeck();
+  renderDeck();
+  showToast('Showing ' + deck.length + ' recipes');
+}
+
+document.querySelectorAll('.pin-key').forEach(btn => btn.addEventListener('click', () => handlePin(btn.dataset.k)));
+document.getElementById('email1-display').textContent = EMAIL_1;
+document.getElementById('email2-display').textContent = EMAIL_2;
+
+function handlePin(k) {
+  if (k === 'del') { pinInput = pinInput.slice(0,-1); }
+  else if (k === '') { return; }
+  else if (pinInput.length < 4) { pinInput += k; }
+  updatePinDots();
+  if (pinInput.length === 4) {
+    if (pinInput === PIN) { document.getElementById('pin-error').textContent = ''; showPrefs(); }
+    else { document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.'; pinInput = ''; updatePinDots(); }
+  }
+}
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) document.getElementById('d'+i).classList.toggle('filled', i < pinInput.length);
+}
+function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
+function showSwipe() { showScreen('swipe-screen'); renderDeck(); }
+function showPicks() { showScreen('picks-screen'); renderPicks(); }
+function showShop()  {
+  showScreen('shop-screen');
+  if (!shopInitialized) {
+    const items = buildShoppingList();
+    checkedItems = new Set(items.map(i => i.key));
+    shopInitialized = true;
+  }
+  renderShop();
+}
+function showSend()  { showScreen('send-screen'); }
+
+function showPrefs(tab) { showScreen('prefs-screen'); renderPrefsScreen(tab || 'proteins'); }
+function applyPrefsAndSwipe() { buildDeck(); showSwipe(); }
+
+function renderPrefsScreen(tab) {
+  tab = tab || 'proteins';
+  document.getElementById('tab-proteins').classList.toggle('active', tab === 'proteins');
+  document.getElementById('tab-dish').classList.toggle('active', tab === 'dish');
+  const container = document.getElementById('pref-toggles-container');
+  if (tab === 'proteins') {
+    container.innerHTML = Object.entries(PROTEIN_GROUPS).map(([key, group]) => {
+      const on = !excludedGroups.has(key);
+      return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="toggleProteinGroup(this,\''+key+'\')">'+(on?'&#10003; ':'')+group.label+'</button>';
+    }).join('');
+  } else {
+    container.innerHTML = Object.entries(DISH_TYPE_GROUPS).map(([key, group]) => {
+      const on = !excludedDishTypes.has(key);
+      return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="toggleDishType(this,\''+key+'\')">'+(on?'&#10003; ':'')+group.label+'</button>';
+    }).join('');
+  }
+  updatePrefsCount();
+}
+
+function toggleProteinGroup(btn, key) {
+  if (excludedGroups.has(key)) {
+    excludedGroups.delete(key);
+    btn.className = 'pref-toggle active';
+    btn.innerHTML = '&#10003; ' + PROTEIN_GROUPS[key].label;
+  } else {
+    excludedGroups.add(key);
+    btn.className = 'pref-toggle excluded';
+    btn.textContent = PROTEIN_GROUPS[key].label;
+  }
+  savePrefs();
+  updatePrefsCount();
+}
+
+function toggleDishType(btn, key) {
+  if (excludedDishTypes.has(key)) {
+    excludedDishTypes.delete(key);
+    btn.className = 'pref-toggle active';
+    btn.innerHTML = '&#10003; ' + DISH_TYPE_GROUPS[key].label;
+  } else {
+    excludedDishTypes.add(key);
+    btn.className = 'pref-toggle excluded';
+    btn.textContent = DISH_TYPE_GROUPS[key].label;
+  }
+  savePrefs();
+  updatePrefsCount();
+}
+
+function updatePrefsCount() {
+  let pool = [...RECIPES];
+  if (excludedGroups.size > 0) {
+    pool = pool.filter(r => {
+      if (!r.protein) return true;
+      for (const key of excludedGroups) {
+        if (PROTEIN_GROUPS[key].values.test(r.protein)) return false;
+      }
+      return true;
+    });
+  }
+  if (excludedDishTypes.size > 0) {
+    pool = pool.filter(r => {
+      const text = r.name + ' ' + (r.subtitle || '');
+      for (const key of excludedDishTypes) {
+        if (DISH_TYPE_GROUPS[key].values.test(text)) return false;
+      }
+      return true;
+    });
+  }
+  document.getElementById('prefs-count').innerHTML = '<strong>'+pool.length.toLocaleString()+'</strong> of '+RECIPES.length.toLocaleString()+' recipes will appear';
+}
+
+function selectTime(btn) {
+  document.querySelectorAll('.time-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  selectedMaxTime = parseInt(btn.dataset.t) || null;
+  buildDeck();
+  renderDeck();
+  showToast('Showing ' + deck.length + ' recipes');
+}
+
+function renderDeck() {
+  const stack = document.getElementById('card-stack');
+  stack.innerHTML = '';
+  updateProgress();
+  const remaining = deck.slice(deckIndex);
+  if (!remaining.length) {
+    stack.innerHTML = '<div class="empty-deck"><div class="big">🎉</div><div>All done swiping!</div><button class="view-picks-btn" onclick="showPicks()">View '+picks.length+' picked meals</button></div>';
+    return;
+  }
+  const visible = remaining.slice(0,3).reverse();
+  visible.forEach((recipe, i) => {
+    const isTop = i === visible.length - 1;
+    const card = buildCard(recipe, isTop);
+    card.style.transform = 'scale('+(1-(visible.length-1-i)*0.03)+') translateY('+((visible.length-1-i)*8)+'px)';
+    card.style.zIndex = i;
+    if (!isTop) card.style.pointerEvents = 'none';
+    stack.appendChild(card);
+    if (isTop) currentCardEl = card;
+  });
+}
+
+function buildCard(recipe, interactive) {
+  const card = document.createElement('div');
+  card.className = 'recipe-card';
+  card.dataset.id = recipe.id;
+  const totalMin = (recipe.prepMin||0) + (recipe.cookMin||0);
+  const timeStr = totalMin ? totalMin+' min' : '';
+  card.innerHTML = (recipe.imageUrl
+    ? '<img class="card-img" src="'+recipe.imageUrl+'" loading="lazy" draggable="false">'
+    : '<div class="card-img-placeholder">🍽️</div>')
+    + '<div class="card-body">'
+    + '<div class="card-name">'+recipe.name+'</div>'
+    + (recipe.subtitle ? '<div class="card-sub">'+recipe.subtitle+'</div>' : '')
+    + '<div class="card-chips">'
+    + (recipe.protein ? '<span class="chip protein">'+recipe.protein+'</span>' : '')
+    + (recipe.cuisine ? '<span class="chip">'+recipe.cuisine+'</span>' : '')
+    + (timeStr ? '<span class="chip time">⏱ '+timeStr+'</span>' : '')
+    + (recipe.calories ? '<span class="chip">🔥 '+recipe.calories+' cal</span>' : '')
+    + (recipe.cardLink ? '<a class="chip chip-pdf" href="'+recipe.cardLink+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">📄 Recipe Card</a>' : '')
+    + '</div></div>'
+    + '<div class="stamp stamp-yes">YES</div><div class="stamp stamp-no">NOPE</div>';
+  if (interactive) setupDrag(card);
+  return card;
+}
+
+function updateProgress() {
+  const rem = deck.length - deckIndex;
+  document.getElementById('swipe-progress').textContent = deckIndex+' swiped · '+picks.length+' picked · '+rem+' remaining';
+  document.getElementById('picks-badge').textContent = picks.length+' picked';
+}
+
+function setupDrag(card) {
+  let startX, startY, curX = 0, curY = 0, active = false;
+  const stampY = card.querySelector('.stamp-yes'), stampN = card.querySelector('.stamp-no');
+  function onStart(e) {
+    const pt = e.touches ? e.touches[0] : e;
+    startX = curX = pt.clientX; startY = curY = pt.clientY; active = true;
+    card.classList.add('dragging');
+  }
+  function onMove(e) {
+    if (!active) return; e.preventDefault();
+    const pt = e.touches ? e.touches[0] : e;
+    curX = pt.clientX; curY = pt.clientY;
+    const dx = curX-startX, dy = curY-startY;
+    card.style.transform = 'translate('+dx+'px,'+dy+'px) rotate('+(dx*0.06)+'deg)';
+    const pct = Math.min(Math.abs(dx)/80,1);
+    if (dx>0) { stampY.style.opacity=pct; stampN.style.opacity=0; }
+    else { stampN.style.opacity=pct; stampY.style.opacity=0; }
+  }
+  function onEnd() {
+    if (!active) return; active = false;
+    card.classList.remove('dragging');
+    const dx = curX - startX;
+    if (Math.abs(dx) > 80) { commitSwipe(dx > 0 ? 'right' : 'left'); }
+    else {
+      card.style.transition = 'transform .3s';
+      card.style.transform = '';
+      stampY.style.opacity = stampN.style.opacity = 0;
+      setTimeout(() => card.style.transition='', 300);
+    }
+  }
+  card.addEventListener('mousedown', onStart);
+  card.addEventListener('touchstart', onStart, {passive:false});
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('touchmove', onMove, {passive:false});
+  document.addEventListener('mouseup', onEnd);
+  document.addEventListener('touchend', onEnd);
+}
+
+function swipeCard(dir) { if (currentCardEl) commitSwipe(dir); }
+function commitSwipe(dir) {
+  if (deckIndex >= deck.length) return;
+  const recipe = deck[deckIndex];
+  history.push({recipe, dir, deckIndex});
+  currentCardEl.classList.add(dir==='right' ? 'fly-right' : 'fly-left');
+  if (dir === 'right') { picks.push(recipe); shopInitialized = false; showToast('♥ Added to menu!'); }
+  deckIndex++;
+  setTimeout(() => renderDeck(), 350);
+}
+function undoSwipe() {
+  if (!history.length) return;
+  const last = history.pop();
+  if (last.dir === 'right') picks = picks.filter(p => p.id !== last.recipe.id);
+  deckIndex = last.deckIndex;
+  renderDeck(); showToast('↩ Undone');
+}
+
+function renderPicks() {
+  const el = document.getElementById('picks-list');
+  if (!picks.length) { el.innerHTML = '<div class="empty-picks">No meals picked yet.<br>Go back and swipe! 👆</div>'; return; }
+  el.innerHTML = picks.map(r =>
+    '<div class="pick-item">'
+    + (r.imageUrl ? '<img class="pick-thumb" src="'+r.imageUrl+'" loading="lazy">' : '<div class="pick-thumb" style="display:flex;align-items:center;justify-content:center;font-size:22px">🍽️</div>')
+    + '<div class="pick-info"><div class="pick-name">'+r.name+'</div><div class="pick-meta">'+[r.protein,r.cuisine].filter(Boolean).join(' · ')+'</div></div>'
+    + '<button class="pick-remove" onclick="removePick('+r.id+')">✕</button></div>'
+  ).join('');
+}
+function removePick(id) { picks = picks.filter(p => p.id !== id); shopInitialized = false; renderPicks(); updateProgress(); }
+
+function fmtAmt(n) {
+  return parseFloat(n.toFixed(2)).toString();
+}
+function buildShoppingList() {
+  const agg = {};
+  picks.forEach(r => (r.ingredients||[]).forEach(ing => {
+    const q = (r.qty||{})[ing];
+    const unit = q && q.amount != null ? (q.unit || '') : '';
+    const key = ing.toLowerCase().trim() + '|' + unit;
+    if (!agg[key]) agg[key] = {label:ing, unit:unit, amount:0, count:0, hasQty:false, key:key};
+    agg[key].count++;
+    if (q && q.amount != null) { agg[key].amount += q.amount; agg[key].hasQty = true; }
+  }));
+  return Object.values(agg).sort((a,b) => a.label.localeCompare(b.label));
+}
+
+function renderShop() {
+  const el = document.getElementById('shop-list');
+  const items = buildShoppingList();
+  if (!items.length) { el.innerHTML = '<div class="empty-picks" style="margin-top:40px">Pick some meals first!</div>'; return; }
+  const cats = {'🥩 Proteins':[],'🥦 Produce':[],'🥛 Dairy':[],'🍚 Grains & Starches':[],'🌶 Sauces & Condiments':[],'🧂 Pantry':[]};
+  items.forEach(item => {
+    const l = item.label;
+    if (/\b(chicken|pork|beef|steak|shrimp|turkey|tofu|lamb|sausage|ground)\b/i.test(l)) cats['🥩 Proteins'].push(item);
+    else if (/\b(garlic|onion|scallion|carrot|zucchini|spinach|kale|tomato|pepper|broccoli|mushroom|cucumber|lime|lemon|apple|peach|mango|corn|avocado|cabbage|celery|arugula|asparagus|bok choy|green bean|pea|edamame|ginger|parsley|cilantro|basil|thyme|rosemary|oregano|grape|fig)\b/i.test(l)) cats['🥦 Produce'].push(item);
+    else if (/\b(cheese|butter|cream|milk|sour cream|feta|mozzarella|parmesan|ricotta|ranch)\b/i.test(l)) cats['🥛 Dairy'].push(item);
+    else if (/\b(rice|pasta|noodle|couscous|tortilla|bread|biscuit|pita|bun|roll|panko|breadcrumb|flour|ravioli|tortelloni|cavatappi|spaghetti|tostada)\b/i.test(l)) cats['🍚 Grains & Starches'].push(item);
+    else if (/\b(sauce|glaze|mayo|ketchup|mustard|vinegar|soy|hoisin|sriracha|hot sauce|pesto|salsa|jam|miso|chili sauce|bulgogi|curry|tahini|hummus|oil)\b/i.test(l)) cats['🌶 Sauces & Condiments'].push(item);
+    else cats['🧂 Pantry'].push(item);
+  });
+  el.innerHTML = Object.entries(cats).filter(([,v])=>v.length).map(([cat,citems]) =>
+    '<div class="shop-group"><div class="shop-group-title">'+cat+'</div>'
+    + citems.map(item => {
+        const k = item.key;
+        const on = checkedItems.has(k);
+        const qtyText = item.hasQty
+          ? ' <span style="color:var(--text2);font-size:12px">'+fmtAmt(item.amount)+(item.unit?' '+item.unit:'')+'</span>'
+          : (item.count>1?' <span style="color:var(--text2);font-size:12px">(x'+item.count+')</span>':'');
+        return '<div class="shop-item'+(on?' checked':'')+'" onclick="toggleItem(this,\''+k.replace(/'/g,"\\'")+'\')">'
+          + '<div class="shop-check'+(on?' on':'')+'"></div>'
+          + '<div class="shop-item-text">'+item.label+qtyText+'</div></div>';
+      }).join('')
+    + '</div>'
+  ).join('');
+  updateShopSummary(items);
+}
+
+function toggleItem(el, key) {
+  if (checkedItems.has(key)) { checkedItems.delete(key); el.classList.remove('checked'); el.querySelector('.shop-check').classList.remove('on'); }
+  else { checkedItems.add(key); el.classList.add('checked'); el.querySelector('.shop-check').classList.add('on'); }
+  updateShopSummary(buildShoppingList());
+}
+function updateShopSummary(items) {
+  const toBuy = checkedItems.size;
+  document.getElementById('shop-summary').textContent = toBuy+' to buy · '+(items.length - toBuy)+' already have · '+items.length+' total';
+}
+
+async function sendEmail() {
+  const btn = document.getElementById('send-btn'), status = document.getElementById('send-status');
+  btn.disabled = true; status.textContent = 'Sending…';
+  const items = buildShoppingList();
+  const needed = items.filter(i => checkedItems.has(i.key));
+  const fmtItem = i => '• '+i.label+(i.hasQty?' — '+fmtAmt(i.amount)+(i.unit?' '+i.unit:''):(i.count>1?' (x'+i.count+')':''));
+  const fmtMeal = (r,i) => (i+1)+'. '+(r.cardLink ? '<a href="'+r.cardLink+'">'+r.name+'</a>' : r.name);
+  const payload = {
+    emails: [EMAIL_1, EMAIL_2],
+    subject: '🍽 Meal Plan for the Week ('+picks.length+' meals)',
+    meals: picks.map(fmtMeal).join('\n'),
+    shopping_list: needed.map(fmtItem).join('\n'),
+    have_list: items.filter(i=>!checkedItems.has(i.key)).map(i=>'• '+i.label).join('\n'),
+    meal_count: picks.length, item_count: needed.length
+  };
+  if (N8N_WEBHOOK === 'UPDATE_N8N_WEBHOOK_URL_HERE') {
+    status.textContent = '⚠️ Add your n8n webhook URL in the config';
+    btn.disabled = false; showToast('Configure n8n webhook first'); return;
+  }
+  try {
+    await fetch(N8N_WEBHOOK, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    status.textContent = '✅ Sent! Check your inboxes.'; showToast('✅ Emails sent!'); btn.disabled = false;
+  } catch(e) { status.textContent = '❌ Error sending. Try again.'; btn.disabled = false; }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(showToast._t); showToast._t = setTimeout(()=>t.classList.remove('show'), 2000);
+}
+
+buildDeck();
+renderDeck();
+</script>
+</body>
+</html>
