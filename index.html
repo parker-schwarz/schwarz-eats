@@ -107,8 +107,15 @@
   .send-title { font-size: 22px; font-weight: 800; }
   .send-sub { font-size: 14px; color: var(--text2); text-align: center; max-width: 280px; line-height: 1.5; }
   .send-emails { background: var(--surface); border-radius: 12px; padding: 14px 16px; width: 100%; max-width: 340px; }
-  .email-row { font-size: 13px; padding: 4px 0; color: var(--text2); }
-  .email-row span { color: var(--text); font-weight: 500; }
+  .email-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 6px 0; color: var(--text2); border-bottom: 1px solid rgba(255,255,255,.06); }
+  .email-row:last-child { border-bottom: none; }
+  .email-row span { color: var(--text); font-weight: 500; flex: 1; }
+  .email-row-remove { background: none; border: none; color: var(--text2); font-size: 16px; cursor: pointer; padding: 2px 6px; line-height: 1; }
+  .email-row-remove:hover { color: var(--red); }
+  .add-recipient-row { display: flex; gap: 8px; width: 100%; max-width: 340px; margin-top: 4px; }
+  .recipient-input { flex: 1; background: var(--surface); border: 1.5px solid rgba(255,255,255,.1); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--text); outline: none; }
+  .recipient-input:focus { border-color: var(--accent); }
+  .recipient-add-btn { background: var(--surface2); color: var(--text); border: none; border-radius: 10px; padding: 10px 14px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
   .btn-send { background: var(--accent); color: #fff; border: none; padding: 16px 48px; border-radius: 50px; font-size: 17px; font-weight: 700; cursor: pointer; width: 100%; max-width: 340px; }
   .btn-send:disabled { opacity: .5; cursor: default; }
   .send-status { font-size: 14px; color: var(--text2); text-align: center; height: 20px; }
@@ -233,10 +240,11 @@
 <div id="send-screen" class="screen hidden">
   <div class="send-icon">✉️</div>
   <div class="send-title">Ready to send!</div>
-  <div class="send-sub">We'll email your meal plan and shopping list to both of you.</div>
-  <div class="send-emails">
-    <div class="email-row">📬 <span id="email1-display"></span></div>
-    <div class="email-row">📬 <span id="email2-display"></span></div>
+  <div class="send-sub">We'll send the meal plan to everyone below.</div>
+  <div class="send-emails" id="recipient-list"></div>
+  <div class="add-recipient-row">
+    <input type="email" id="recipient-input" class="recipient-input" placeholder="Add email address…" onkeydown="if(event.key==='Enter') addRecipient()">
+    <button class="recipient-add-btn" onclick="addRecipient()">+ Add</button>
   </div>
   <button class="btn-send" id="send-btn" onclick="sendEmail()">Send now</button>
   <div class="send-status" id="send-status"></div>
@@ -248,9 +256,8 @@
 <script src="recipes.js"></script>
 <script>
 const PIN = "1215";
-const EMAIL_1 = "parkerschwarz@gmail.com";
-const EMAIL_2 = "allen.natalie9@gmail.com";
 const N8N_WEBHOOK = "https://parkerschwarz.app.n8n.cloud/webhook/schwarz-eats-meal-plan";
+let recipients = ['parkerschwarz@gmail.com', 'allen.natalie9@gmail.com'];
 
 let pinInput = '';
 function shuffle(arr) {
@@ -271,10 +278,13 @@ function loadPrefs() {
     excludedDishTypes = new Set(prefs.excludedDishTypes || []);
     hiddenIds    = new Set(prefs.hiddenIds || []);
     favoritedIds = new Set(prefs.favIds   || []);
+    if (Array.isArray(prefs.recipients) && prefs.recipients.length) recipients = prefs.recipients;
   } catch(e) { excludedGroups = new Set(); excludedDishTypes = new Set(); hiddenIds = new Set(); favoritedIds = new Set(); }
 }
+let hiddenIds    = new Set();
+let favoritedIds = new Set();
 function savePrefs() {
-  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 3, excludedGroups: [...excludedGroups], excludedDishTypes: [...excludedDishTypes], hiddenIds: [...hiddenIds], favIds: [...favoritedIds] }));
+  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 4, excludedGroups: [...excludedGroups], excludedDishTypes: [...excludedDishTypes], hiddenIds: [...hiddenIds], favIds: [...favoritedIds], recipients }));
 }
 loadPrefs();
 let deck = [];
@@ -286,8 +296,6 @@ let deckIndex = 0;
 let selectedCategory = 'all';
 let selectedMaxTime = null;
 let glutenFreeOnly = false;
-let hiddenIds    = new Set();
-let favoritedIds = new Set();
 let favoritesOnly = false;
 let shopInitialized = false;
 
@@ -380,8 +388,6 @@ function toggleGlutenFree(btn) {
 }
 
 document.querySelectorAll('.pin-key').forEach(btn => btn.addEventListener('click', () => handlePin(btn.dataset.k)));
-document.getElementById('email1-display').textContent = EMAIL_1;
-document.getElementById('email2-display').textContent = EMAIL_2;
 
 function handlePin(k) {
   if (k === 'del') { pinInput = pinInput.slice(0,-1); }
@@ -408,7 +414,7 @@ function showShop()  {
   }
   renderShop();
 }
-function showSend()  { showScreen('send-screen'); }
+function showSend()  { showScreen('send-screen'); renderRecipients(); }
 
 function showPrefs(tab) { showScreen('prefs-screen'); renderPrefsScreen(tab || 'proteins'); }
 function applyPrefsAndSwipe() { buildDeck(); showSwipe(); }
@@ -709,6 +715,33 @@ function updateShopSummary(items) {
   document.getElementById('shop-summary').textContent = toBuy+' to buy · '+(items.length - toBuy)+' already have · '+items.length+' total';
 }
 
+function renderRecipients() {
+  const el = document.getElementById('recipient-list');
+  if (!el) return;
+  el.innerHTML = recipients.length
+    ? recipients.map((email, i) =>
+        '<div class="email-row"><span>📬 ' + email + '</span>'
+        + '<button class="email-row-remove" onclick="removeRecipient(' + i + ')">✕</button></div>'
+      ).join('')
+    : '<div style="font-size:13px;color:var(--text2);padding:6px 0">No recipients — add one below.</div>';
+}
+function addRecipient() {
+  const input = document.getElementById('recipient-input');
+  const val = (input.value || '').trim().toLowerCase();
+  if (!val || !val.includes('@')) { showToast('Enter a valid email'); return; }
+  if (recipients.includes(val)) { showToast('Already added'); input.value = ''; return; }
+  recipients.push(val);
+  savePrefs();
+  input.value = '';
+  renderRecipients();
+  showToast('✅ Added');
+}
+function removeRecipient(i) {
+  recipients.splice(i, 1);
+  savePrefs();
+  renderRecipients();
+}
+
 async function sendEmail() {
   const btn = document.getElementById('send-btn'), status = document.getElementById('send-status');
   btn.disabled = true; status.textContent = 'Sending…';
@@ -717,7 +750,7 @@ async function sendEmail() {
   const fmtItem = i => '• '+i.label+(i.hasQty?' — '+fmtAmt(i.amount)+(i.unit?' '+i.unit:''):(i.count>1?' (x'+i.count+')':''));
   const fmtMeal = (r,i) => (i+1)+'. '+(r.cardLink ? '<a href="'+r.cardLink+'">'+r.name+'</a>' : r.name);
   const payload = {
-    emails: [EMAIL_1, EMAIL_2],
+    emails: recipients,
     subject: '🍽 Meal Plan for the Week ('+picks.length+' meals)',
     meals: picks.map(fmtMeal).join('\n'),
     shopping_list: needed.map(fmtItem).join('\n'),
