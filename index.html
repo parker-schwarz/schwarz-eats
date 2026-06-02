@@ -64,7 +64,7 @@
   .action-btn { width: 62px; height: 62px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; transition: transform .15s; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
   .action-btn:active { transform: scale(.88); }
   .btn-skip { background: var(--surface2); color: var(--red); }
-  .btn-pick { background: var(--accent); color: #fff; }
+  .btn-pick { background: var(--green); color: #fff; }
   .btn-undo  { background: var(--surface2); color: var(--text2);   font-size: 18px; }
   .btn-never { background: var(--surface2); color: var(--red);    font-size: 18px; }
   .btn-fave  { background: var(--surface2); color: var(--accent2); font-size: 20px; }
@@ -125,7 +125,6 @@
   .category-filter::-webkit-scrollbar { display: none; }
   .cat-chip { flex-shrink: 0; padding: 6px 14px; border-radius: 20px; border: none; background: var(--surface2); color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
   .cat-chip.active { background: var(--accent); color: #fff; }
-  .gf-chip.active  { background: var(--green);  color: #fff; }
   .card-stack { margin-top: 88px; }
   #prefs-screen { background: var(--bg); gap: 0; justify-content: flex-start; padding-top: 48px; }
   .prefs-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; max-width: 380px; padding: 0 20px; }
@@ -194,7 +193,6 @@
     <button class="cat-chip" data-cat="mexican" onclick="selectCategory(this)">🌮 Mexican</button>
     <button class="cat-chip" data-cat="italian" onclick="selectCategory(this)">🍝 European</button>
     <button class="cat-chip" data-cat="mediterranean" onclick="selectCategory(this)">🥙 Mediterranean</button>
-    <button class="cat-chip gf-chip"  onclick="toggleGlutenFree(this)">🌾 GF</button>
     <button class="cat-chip fav-chip" onclick="toggleFavoritesOnly(this)">⭐ Favs</button>
   </div>
   <div class="time-filter" id="time-filter">
@@ -207,7 +205,7 @@
     <button class="action-btn btn-never" onclick="neverRecipe()">🚫</button>
     <button class="action-btn btn-undo"  onclick="undoSwipe()">↩</button>
     <button class="action-btn btn-skip"  onclick="swipeCard('left')">✕</button>
-    <button class="action-btn btn-pick"  onclick="swipeCard('right')">♥</button>
+    <button class="action-btn btn-pick"  onclick="swipeCard('right')">✓</button>
     <button class="action-btn btn-fave"  id="btn-fave" onclick="faveRecipe()">⭐</button>
   </div>
   <div class="swipe-progress" id="swipe-progress"></div>
@@ -279,12 +277,13 @@ function loadPrefs() {
     hiddenIds    = new Set(prefs.hiddenIds || []);
     favoritedIds = new Set(prefs.favIds   || []);
     if (Array.isArray(prefs.recipients) && prefs.recipients.length) recipients = prefs.recipients;
+    if (prefs.glutenFreeOnly) glutenFreeOnly = true;
   } catch(e) { excludedGroups = new Set(); excludedDishTypes = new Set(); hiddenIds = new Set(); favoritedIds = new Set(); }
 }
 let hiddenIds    = new Set();
 let favoritedIds = new Set();
 function savePrefs() {
-  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 4, excludedGroups: [...excludedGroups], excludedDishTypes: [...excludedDishTypes], hiddenIds: [...hiddenIds], favIds: [...favoritedIds], recipients }));
+  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 4, excludedGroups: [...excludedGroups], excludedDishTypes: [...excludedDishTypes], hiddenIds: [...hiddenIds], favIds: [...favoritedIds], recipients, glutenFreeOnly }));
 }
 loadPrefs();
 let deck = [];
@@ -322,9 +321,10 @@ const DISH_TYPE_GROUPS = {
   soup:    { label: 'Soups & Stews',       values: /\b(soup|stew|chowder|bisque)\b/i },
   pasta:   { label: 'Pasta & Noodles',     values: /\b(pasta|noodle|spaghetti|linguine|fettuccine|penne|rigatoni|cavatappi|tortelloni|ravioli)\b/i },
   tacos:   { label: 'Tacos & Wraps',       values: /\b(taco|burrito|wrap|quesadilla|fajita)\b/i },
-  stirfry: { label: 'Stir-Fry',           values: /\bstir.?fry\b/i },
-  onepot:  { label: 'One-Pot / Sheet Pan', values: /\b(one.?pot|one.?pan|sheet.?pan)\b/i },
-  pizza:   { label: 'Pizza & Flatbread',   values: /\b(pizza|flatbread)\b/i },
+  stirfry:   { label: 'Stir-Fry',              values: /\bstir.?fry\b/i },
+  onepot:    { label: 'One-Pot / Sheet Pan',   values: /\b(one.?pot|one.?pan|sheet.?pan)\b/i },
+  pizza:     { label: 'Pizza & Flatbread',     values: /\b(pizza|flatbread)\b/i },
+  sandwich:  { label: 'Sandwiches & Burgers',  values: /\b(sandwich|sandwiches|sando|burger|burgers|hoagie|sub|philly|panini)\b/i },
 };
 
 function buildDeck() {
@@ -371,7 +371,7 @@ function buildDeck() {
 }
 
 function selectCategory(btn) {
-  document.querySelectorAll('.cat-chip:not(.gf-chip)').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.cat-chip:not(.fav-chip)').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
   selectedCategory = btn.dataset.cat;
   buildDeck();
@@ -379,12 +379,11 @@ function selectCategory(btn) {
   showToast('Showing ' + deck.length + ' recipes');
 }
 
-function toggleGlutenFree(btn) {
+function toggleGlutenFree() {
   glutenFreeOnly = !glutenFreeOnly;
-  btn.classList.toggle('active', glutenFreeOnly);
-  buildDeck();
-  renderDeck();
-  showToast(glutenFreeOnly ? 'Gluten-free only · ' + deck.length + ' recipes' : 'Showing ' + deck.length + ' recipes');
+  savePrefs();
+  renderPrefsScreen('dish');
+  updatePrefsCount();
 }
 
 document.querySelectorAll('.pin-key').forEach(btn => btn.addEventListener('click', () => handlePin(btn.dataset.k)));
@@ -430,10 +429,12 @@ function renderPrefsScreen(tab) {
       return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="toggleProteinGroup(this,\''+key+'\')">'+(on?'&#10003; ':'')+group.label+'</button>';
     }).join('');
   } else {
-    container.innerHTML = Object.entries(DISH_TYPE_GROUPS).map(([key, group]) => {
+    const dishToggles = Object.entries(DISH_TYPE_GROUPS).map(([key, group]) => {
       const on = !excludedDishTypes.has(key);
       return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="toggleDishType(this,\''+key+'\')">'+(on?'&#10003; ':'')+group.label+'</button>';
     }).join('');
+    const gfToggle = '<button class="pref-toggle '+(glutenFreeOnly?'active':'')+'" onclick="toggleGlutenFree()">'+(glutenFreeOnly?'&#10003; ':'')+'Gluten Free only</button>';
+    container.innerHTML = dishToggles + gfToggle;
   }
   updatePrefsCount();
 }
