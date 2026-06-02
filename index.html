@@ -95,6 +95,7 @@
   .shop-check.on { background: var(--green); border-color: var(--green); }
   .shop-check.on::after { content: '✓'; color: #fff; font-size: 13px; font-weight: 700; }
   .shop-item-text { font-size: 15px; text-decoration: line-through; color: var(--text2); }
+  .shop-item-recipes { font-size: 11px; color: var(--text2); margin-top: 2px; line-height: 1.5; opacity: 0.7; }
   .shop-footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 16px 20px 28px; background: linear-gradient(transparent, var(--bg) 40%); }
   .shop-summary { font-size: 12px; color: var(--text2); text-align: center; margin-bottom: 10px; }
   #send-screen { background: var(--bg); gap: 20px; }
@@ -603,9 +604,10 @@ function buildShoppingList() {
     const q = (r.qty||{})[ing];
     const unit = q && q.amount != null ? (q.unit || '') : '';
     const key = ing.toLowerCase().trim() + '|' + unit;
-    if (!agg[key]) agg[key] = {label:ing, unit:unit, amount:0, count:0, hasQty:false, key:key};
+    if (!agg[key]) agg[key] = {label:ing, unit:unit, amount:0, count:0, hasQty:false, key:key, recipes:[]};
     agg[key].count++;
     if (q && q.amount != null) { agg[key].amount += q.amount; agg[key].hasQty = true; }
+    if (!agg[key].recipes.includes(r.name)) agg[key].recipes.push(r.name);
   }));
   return Object.values(agg).sort((a,b) => a.label.localeCompare(b.label));
 }
@@ -632,9 +634,11 @@ function renderShop() {
         const qtyText = item.hasQty
           ? ' <span style="color:var(--text2);font-size:12px">'+fmtAmt(item.amount)+(item.unit?' '+item.unit:'')+'</span>'
           : (item.count>1?' <span style="color:var(--text2);font-size:12px">(x'+item.count+')</span>':'');
+        const recipeText = item.recipes.join('<br>');
         return '<div class="shop-item'+(on?' checked':'')+'" onclick="toggleItem(this,\''+k.replace(/'/g,"\\'")+'\')">'
           + '<div class="shop-check'+(on?' on':'')+'"></div>'
-          + '<div class="shop-item-text">'+item.label+qtyText+'</div></div>';
+          + '<div class="shop-item-text">'+item.label+qtyText
+          + '<div class="shop-item-recipes">'+recipeText+'</div></div></div>';
       }).join('')
     + '</div>'
   ).join('');
