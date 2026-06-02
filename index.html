@@ -65,7 +65,11 @@
   .action-btn:active { transform: scale(.88); }
   .btn-skip { background: var(--surface2); color: var(--red); }
   .btn-pick { background: var(--accent); color: #fff; }
-  .btn-undo { background: var(--surface2); color: var(--text2); font-size: 18px; }
+  .btn-undo  { background: var(--surface2); color: var(--text2);   font-size: 18px; }
+  .btn-never { background: var(--surface2); color: var(--red);    font-size: 18px; }
+  .btn-fave  { background: var(--surface2); color: var(--accent2); font-size: 20px; }
+  .btn-fave.active { background: rgba(245,166,35,.2); }
+  .fav-chip.active { background: var(--accent2); color: #1a1a1a; }
   .swipe-progress { font-size: 12px; color: var(--text2); margin-top: 12px; }
   .empty-deck { text-align: center; color: var(--text2); font-size: 15px; padding: 40px 20px; }
   .empty-deck .big { font-size: 48px; margin-bottom: 12px; }
@@ -183,7 +187,8 @@
     <button class="cat-chip" data-cat="mexican" onclick="selectCategory(this)">🌮 Mexican</button>
     <button class="cat-chip" data-cat="italian" onclick="selectCategory(this)">🍝 European</button>
     <button class="cat-chip" data-cat="mediterranean" onclick="selectCategory(this)">🥙 Mediterranean</button>
-    <button class="cat-chip gf-chip" onclick="toggleGlutenFree(this)">🌾 GF</button>
+    <button class="cat-chip gf-chip"  onclick="toggleGlutenFree(this)">🌾 GF</button>
+    <button class="cat-chip fav-chip" onclick="toggleFavoritesOnly(this)">⭐ Favs</button>
   </div>
   <div class="time-filter" id="time-filter">
     <button class="time-chip active" data-t="0" onclick="selectTime(this)">All times</button>
@@ -192,9 +197,11 @@
   </div>
   <div class="card-stack" id="card-stack"></div>
   <div class="swipe-actions">
-    <button class="action-btn btn-undo" onclick="undoSwipe()">↩</button>
-    <button class="action-btn btn-skip" onclick="swipeCard('left')">✕</button>
-    <button class="action-btn btn-pick" onclick="swipeCard('right')">♥</button>
+    <button class="action-btn btn-never" onclick="neverRecipe()">🚫</button>
+    <button class="action-btn btn-undo"  onclick="undoSwipe()">↩</button>
+    <button class="action-btn btn-skip"  onclick="swipeCard('left')">✕</button>
+    <button class="action-btn btn-pick"  onclick="swipeCard('right')">♥</button>
+    <button class="action-btn btn-fave"  id="btn-fave" onclick="faveRecipe()">⭐</button>
   </div>
   <div class="swipe-progress" id="swipe-progress"></div>
 </div>
@@ -262,10 +269,12 @@ function loadPrefs() {
     const prefs = JSON.parse(raw);
     excludedGroups = new Set(prefs.excludedGroups || []);
     excludedDishTypes = new Set(prefs.excludedDishTypes || []);
-  } catch(e) { excludedGroups = new Set(); excludedDishTypes = new Set(); }
+    hiddenIds    = new Set(prefs.hiddenIds || []);
+    favoritedIds = new Set(prefs.favIds   || []);
+  } catch(e) { excludedGroups = new Set(); excludedDishTypes = new Set(); hiddenIds = new Set(); favoritedIds = new Set(); }
 }
 function savePrefs() {
-  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 2, excludedGroups: [...excludedGroups], excludedDishTypes: [...excludedDishTypes] }));
+  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 3, excludedGroups: [...excludedGroups], excludedDishTypes: [...excludedDishTypes], hiddenIds: [...hiddenIds], favIds: [...favoritedIds] }));
 }
 loadPrefs();
 let deck = [];
@@ -277,6 +286,9 @@ let deckIndex = 0;
 let selectedCategory = 'all';
 let selectedMaxTime = null;
 let glutenFreeOnly = false;
+let hiddenIds    = new Set();
+let favoritedIds = new Set();
+let favoritesOnly = false;
 let shopInitialized = false;
 
 const CATEGORY_MAP = {
@@ -339,6 +351,10 @@ function buildDeck() {
   }
   if (glutenFreeOnly) {
     pool = pool.filter(r => r.tags && (r.tags.includes('Gluten Free') || r.tags.includes('Gluten-Free Friendly')));
+  }
+  pool = pool.filter(r => !hiddenIds.has(r.id));
+  if (favoritesOnly) {
+    pool = pool.filter(r => favoritedIds.has(r.id));
   }
   deck = shuffle(pool);
   deckIndex = 0;
@@ -495,6 +511,9 @@ function renderDeck() {
     stack.appendChild(card);
     if (isTop) currentCardEl = card;
   });
+  const topRecipe = deck[deckIndex];
+  const faveBtn = document.getElementById('btn-fave');
+  if (faveBtn && topRecipe) faveBtn.classList.toggle('active', favoritedIds.has(topRecipe.id));
 }
 
 function buildCard(recipe, interactive) {
@@ -575,10 +594,43 @@ function commitSwipe(dir) {
   deckIndex++;
   setTimeout(() => renderDeck(), 350);
 }
+function neverRecipe() {
+  if (deckIndex >= deck.length) return;
+  const recipe = deck[deckIndex];
+  hiddenIds.add(recipe.id);
+  savePrefs();
+  history.push({recipe, dir: 'never', deckIndex});
+  currentCardEl.classList.add('fly-left');
+  deckIndex++;
+  showToast('🚫 Hidden');
+  setTimeout(() => renderDeck(), 350);
+}
+function faveRecipe() {
+  if (deckIndex >= deck.length) return;
+  const recipe = deck[deckIndex];
+  const alreadyFaved = favoritedIds.has(recipe.id);
+  if (alreadyFaved) { favoritedIds.delete(recipe.id); showToast('⭐ Unfavorited'); }
+  else { favoritedIds.add(recipe.id); showToast('⭐ Favorited!'); }
+  savePrefs();
+  history.push({recipe, dir: alreadyFaved ? 'unfave' : 'fave', deckIndex});
+  document.getElementById('btn-fave').classList.toggle('active', favoritedIds.has(recipe.id));
+  currentCardEl.classList.add('fly-right');
+  deckIndex++;
+  setTimeout(() => renderDeck(), 350);
+}
+function toggleFavoritesOnly(btn) {
+  favoritesOnly = !favoritesOnly;
+  btn.classList.toggle('active', favoritesOnly);
+  buildDeck(); renderDeck();
+  showToast(favoritesOnly ? '⭐ Favorites only · ' + deck.length + ' recipes' : 'Showing ' + deck.length + ' recipes');
+}
 function undoSwipe() {
   if (!history.length) return;
   const last = history.pop();
-  if (last.dir === 'right') picks = picks.filter(p => p.id !== last.recipe.id);
+  if (last.dir === 'right')  picks = picks.filter(p => p.id !== last.recipe.id);
+  if (last.dir === 'never')  { hiddenIds.delete(last.recipe.id);    savePrefs(); }
+  if (last.dir === 'fave')   { favoritedIds.delete(last.recipe.id); savePrefs(); }
+  if (last.dir === 'unfave') { favoritedIds.add(last.recipe.id);    savePrefs(); }
   deckIndex = last.deckIndex;
   renderDeck(); showToast('↩ Undone');
 }
