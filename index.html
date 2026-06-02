@@ -113,6 +113,7 @@
   .category-filter::-webkit-scrollbar { display: none; }
   .cat-chip { flex-shrink: 0; padding: 6px 14px; border-radius: 20px; border: none; background: var(--surface2); color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
   .cat-chip.active { background: var(--accent); color: #fff; }
+  .gf-chip.active  { background: var(--green);  color: #fff; }
   .card-stack { margin-top: 88px; }
   #prefs-screen { background: var(--bg); gap: 0; justify-content: flex-start; padding-top: 48px; }
   .prefs-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; max-width: 380px; padding: 0 20px; }
@@ -181,6 +182,7 @@
     <button class="cat-chip" data-cat="mexican" onclick="selectCategory(this)">🌮 Mexican</button>
     <button class="cat-chip" data-cat="italian" onclick="selectCategory(this)">🍝 European</button>
     <button class="cat-chip" data-cat="mediterranean" onclick="selectCategory(this)">🥙 Mediterranean</button>
+    <button class="cat-chip gf-chip" onclick="toggleGlutenFree(this)">🌾 GF</button>
   </div>
   <div class="time-filter" id="time-filter">
     <button class="time-chip active" data-t="0" onclick="selectTime(this)">All times</button>
@@ -273,6 +275,7 @@ let currentCardEl = null;
 let deckIndex = 0;
 let selectedCategory = 'all';
 let selectedMaxTime = null;
+let glutenFreeOnly = false;
 let shopInitialized = false;
 
 const CATEGORY_MAP = {
@@ -333,6 +336,9 @@ function buildDeck() {
       return total > 0 && total <= selectedMaxTime;
     });
   }
+  if (glutenFreeOnly) {
+    pool = pool.filter(r => r.tags && (r.tags.includes('Gluten Free') || r.tags.includes('Gluten-Free Friendly')));
+  }
   deck = shuffle(pool);
   deckIndex = 0;
   history = [];
@@ -340,12 +346,20 @@ function buildDeck() {
 }
 
 function selectCategory(btn) {
-  document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.cat-chip:not(.gf-chip)').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
   selectedCategory = btn.dataset.cat;
   buildDeck();
   renderDeck();
   showToast('Showing ' + deck.length + ' recipes');
+}
+
+function toggleGlutenFree(btn) {
+  glutenFreeOnly = !glutenFreeOnly;
+  btn.classList.toggle('active', glutenFreeOnly);
+  buildDeck();
+  renderDeck();
+  showToast(glutenFreeOnly ? 'Gluten-free only · ' + deck.length + ' recipes' : 'Showing ' + deck.length + ' recipes');
 }
 
 document.querySelectorAll('.pin-key').forEach(btn => btn.addEventListener('click', () => handlePin(btn.dataset.k)));
