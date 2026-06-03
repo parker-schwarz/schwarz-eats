@@ -6,15 +6,15 @@
 <title>Schwarz Meal Planner</title>
 <style>
   :root {
-    --bg: #0f0f13;
-    --surface: #1a1a22;
-    --surface2: #24242f;
-    --accent: #e87040;
-    --accent2: #f5a623;
-    --green: #4caf7d;
-    --red: #e05555;
-    --text: #f0ede8;
-    --text2: #9996a0;
+    --bg: #e0e8db;
+    --surface: #fafaf5;
+    --surface2: #cfdbc9;
+    --accent: #4a7a56;
+    --accent2: #c49030;
+    --green: #4a7a56;
+    --red: #c04040;
+    --text: #1a1e16;
+    --text2: #6a7464;
     --radius: 18px;
     --card-w: min(88vw, 360px);
     --card-h: min(72vh, 540px);
@@ -56,8 +56,8 @@
   .chip { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; background: var(--surface2); color: var(--text2); }
   .chip.protein { background: rgba(232,112,64,.18); color: var(--accent); }
   .chip.time    { background: rgba(245,166,35,.15); color: var(--accent2); }
-  .chip.chip-pdf { background: rgba(100,180,255,.15); color: #64b4ff; text-decoration: none; cursor: pointer; font-size: 13px; padding: 5px 12px; }
-  .card-recipe-link { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 14px; padding: 10px 16px; border-radius: 10px; background: rgba(100,180,255,.15); color: #64b4ff; text-decoration: none; font-size: 15px; font-weight: 700; letter-spacing: 0.2px; }
+  .chip.chip-pdf { background: rgba(100,180,255,.15); color: #4a7a56; text-decoration: none; cursor: pointer; font-size: 13px; padding: 5px 12px; }
+  .card-recipe-link { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 14px; padding: 10px 16px; border-radius: 10px; background: rgba(100,180,255,.15); color: #4a7a56; text-decoration: none; font-size: 15px; font-weight: 700; letter-spacing: 0.2px; }
   .stamp { position: absolute; top: 24px; padding: 6px 14px; border-radius: 8px; font-size: 22px; font-weight: 900; letter-spacing: 2px; border: 3px solid; opacity: 0; pointer-events: none; }
   .stamp-yes { left: 16px; color: var(--green); border-color: var(--green); transform: rotate(-15deg); }
   .stamp-no  { right: 16px; color: var(--red);   border-color: var(--red);   transform: rotate(15deg); }
@@ -68,11 +68,11 @@
   .btn-pick  { background: var(--surface2); }
   .btn-undo  { background: var(--surface2); color: var(--text2); font-size: 20px; }
   .btn-never { background: var(--surface2); font-size: 20px; }
-  .ob-card { display: flex; flex-direction: column; height: 100%; background: linear-gradient(160deg, #1e1e2e 0%, #16161f 100%); }
-  .ob-header { padding: 24px 20px 14px; text-align: center; border-bottom: 1px solid rgba(255,255,255,.07); }
+  .ob-card { display: flex; flex-direction: column; height: 100%; background: var(--surface); }
+  .ob-header { padding: 24px 20px 14px; text-align: center; border-bottom: 1px solid rgba(0,0,0,.07); }
   .ob-tagline { font-size: 13px; color: var(--text2); margin-top: 6px; }
   .ob-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 16px 20px 20px; gap: 14px; }
-  .ob-swipe-row { display: flex; justify-content: space-between; background: rgba(255,255,255,.05); border-radius: 10px; padding: 10px 14px; }
+  .ob-swipe-row { display: flex; justify-content: space-between; background: var(--surface2); border-radius: 10px; padding: 10px 14px; }
   .ob-swipe-hint { font-size: 13px; color: var(--text2); }
   .ob-btn-list { display: flex; flex-direction: column; gap: 9px; }
   .ob-btn-row { display: flex; align-items: center; gap: 12px; font-size: 13px; }
@@ -195,6 +195,7 @@
     <div id="prefs-count" class="prefs-count"></div>
     <button class="big-btn btn-primary" style="width:100%;padding:15px;border-radius:50px;font-size:16px;font-weight:700;border:none;cursor:pointer;background:var(--accent);color:#fff;" onclick="applyPrefsAndSwipe()">Start Swiping &#8594;</button>
     <button class="reset-link" onclick="resetHiddenRecipes()">Restore all hidden recipes</button>
+    <button class="reset-link" onclick="showChangePin()">Change PIN</button>
   </div>
 </div>
 
@@ -269,13 +270,59 @@
   <button class="btn-secondary" style="max-width:340px;width:100%;margin-top:8px" onclick="showShop()">← Back to list</button>
 </div>
 
+<div id="setup-screen" class="screen hidden">
+  <div class="prefs-inner">
+    <div class="logo">Schwarz <span>Eats</span></div>
+    <div class="prefs-subtitle">Add the email addresses for your meal plan delivery.</div>
+    <div id="setup-email-list" style="width:100%;background:var(--surface);border-radius:12px;padding:4px 0;min-height:40px;"></div>
+    <div class="add-recipient-row">
+      <input type="email" id="setup-email-input" class="recipient-input" placeholder="Add email address…" onkeydown="if(event.key==='Enter') setupAddEmail()">
+      <button class="recipient-add-btn" onclick="setupAddEmail()">+ Add</button>
+    </div>
+    <div id="setup-email-error" style="color:var(--red);font-size:13px;height:18px;"></div>
+    <button class="big-btn btn-primary" style="width:100%;padding:15px;border-radius:50px;font-size:16px;font-weight:700;border:none;cursor:pointer;background:var(--accent);color:#fff;" onclick="setupFinish()">Continue →</button>
+  </div>
+</div>
+
+<div id="change-pin-screen" class="screen hidden">
+  <div class="prefs-inner">
+    <div class="logo">Schwarz <span>Eats</span></div>
+    <div class="prefs-subtitle" id="change-pin-subtitle">Enter your new 4-digit PIN</div>
+    <div class="pin-display" id="change-pin-display">
+      <div class="pin-dot" id="cpd0"></div><div class="pin-dot" id="cpd1"></div>
+      <div class="pin-dot" id="cpd2"></div><div class="pin-dot" id="cpd3"></div>
+    </div>
+    <div class="pin-keypad">
+      <button class="pin-key" onclick="handleChangePin('1')">1</button><button class="pin-key" onclick="handleChangePin('2')">2</button><button class="pin-key" onclick="handleChangePin('3')">3</button>
+      <button class="pin-key" onclick="handleChangePin('4')">4</button><button class="pin-key" onclick="handleChangePin('5')">5</button><button class="pin-key" onclick="handleChangePin('6')">6</button>
+      <button class="pin-key" onclick="handleChangePin('7')">7</button><button class="pin-key" onclick="handleChangePin('8')">8</button><button class="pin-key" onclick="handleChangePin('9')">9</button>
+      <button class="pin-key" onclick="handleChangePin('')"></button><button class="pin-key" onclick="handleChangePin('0')">0</button><button class="pin-key del" onclick="handleChangePin('del')">⌫</button>
+    </div>
+    <div class="pin-error" id="change-pin-error"></div>
+    <button class="reset-link" style="margin-top:12px" onclick="showPrefs()">Cancel</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="recipes.js"></script>
 <script>
-const PIN = "7539";
+const DEFAULT_PIN_HASH = "43c060b3a59032e0e8e3aa68cb60211a26523ed118263b8814d5bf70e68fb5d1";
 const N8N_WEBHOOK = "https://parkerschwarz.app.n8n.cloud/webhook/schwarz-eats-meal-plan";
-let recipients = ['parkerschwarz@gmail.com', 'allen.natalie9@gmail.com'];
+const WEBHOOK_SECRET = "7fb426d572950b8d8f84534b1ad27e8e197042d436ffbe59ef89754830bbd26d";
+let recipients = [];
+
+function esc(s) {
+  if (s == null) return '';
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+async function hashPin(pin) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
 
 let pinInput = '';
 function shuffle(arr) {
@@ -432,14 +479,22 @@ function toggleGlutenFree() {
 
 document.querySelectorAll('.pin-key').forEach(btn => btn.addEventListener('click', () => handlePin(btn.dataset.k)));
 
-function handlePin(k) {
+async function handlePin(k) {
   if (k === 'del') { pinInput = pinInput.slice(0,-1); }
   else if (k === '') { return; }
   else if (pinInput.length < 4) { pinInput += k; }
   updatePinDots();
   if (pinInput.length === 4) {
-    if (pinInput === PIN) { document.getElementById('pin-error').textContent = ''; showPrefs(); }
-    else { document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.'; pinInput = ''; updatePinDots(); }
+    const hash = await hashPin(pinInput);
+    const stored = localStorage.getItem('mealplanner_pin_hash');
+    const expected = stored || DEFAULT_PIN_HASH;
+    if (hash === expected) {
+      document.getElementById('pin-error').textContent = '';
+      if (!recipients.length) { showScreen('setup-screen'); } else { showPrefs(); }
+    } else {
+      document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+      pinInput = ''; updatePinDots();
+    }
   }
 }
 function updatePinDots() {
@@ -578,20 +633,22 @@ function buildCard(recipe, interactive) {
   card.dataset.id = recipe.id;
   const totalMin = (recipe.prepMin||0) + (recipe.cookMin||0);
   const timeStr = totalMin ? totalMin+' min' : '';
-  card.innerHTML = (recipe.imageUrl
-    ? '<img class="card-img" src="'+recipe.imageUrl+'" loading="lazy" draggable="false">'
+  const safeImg = recipe.imageUrl && recipe.imageUrl.startsWith('https://') ? recipe.imageUrl : null;
+  const safeLink = recipe.cardLink && recipe.cardLink.startsWith('https://') ? recipe.cardLink : null;
+  card.innerHTML = (safeImg
+    ? '<img class="card-img" src="'+safeImg+'" loading="lazy" draggable="false">'
     : '<div class="card-img-placeholder">🍽️</div>')
     + '<div class="fav-badge" style="display:'+(favoritedIds.has(recipe.id)?'flex':'none')+'">⭐</div>'
     + '<div class="card-body">'
-    + '<div class="card-name">'+recipe.name+'</div>'
-    + (recipe.subtitle ? '<div class="card-sub">'+recipe.subtitle+'</div>' : '')
+    + '<div class="card-name">'+esc(recipe.name)+'</div>'
+    + (recipe.subtitle ? '<div class="card-sub">'+esc(recipe.subtitle)+'</div>' : '')
     + '<div class="card-chips">'
-    + (recipe.protein ? '<span class="chip protein">'+recipe.protein+'</span>' : '')
-    + (recipe.cuisine ? '<span class="chip">'+recipe.cuisine+'</span>' : '')
-    + (timeStr ? '<span class="chip time">⏱ '+timeStr+'</span>' : '')
-    + (recipe.calories ? '<span class="chip">🔥 '+recipe.calories+' cal</span>' : '')
+    + (recipe.protein ? '<span class="chip protein">'+esc(recipe.protein)+'</span>' : '')
+    + (recipe.cuisine ? '<span class="chip">'+esc(recipe.cuisine)+'</span>' : '')
+    + (timeStr ? '<span class="chip time">⏱ '+esc(timeStr)+'</span>' : '')
+    + (recipe.calories ? '<span class="chip">🔥 '+esc(recipe.calories)+' cal</span>' : '')
     + '</div>'
-    + (recipe.cardLink ? '<a class="card-recipe-link" href="'+recipe.cardLink+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">📄 Recipe Card</a>' : '')
+    + (safeLink ? '<a class="card-recipe-link" href="'+safeLink+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">📄 Recipe Card</a>' : '')
     + '</div>'
     + '<div class="stamp stamp-yes">YES</div><div class="stamp stamp-no">NOPE</div>';
   if (interactive) setupDrag(card);
@@ -707,10 +764,12 @@ function renderPicks() {
   el.innerHTML = picks.map(r => {
     const baseServings = parseInt(r.servings) || 2;
     const totalServings = recipeServings[r.id] != null ? recipeServings[r.id] : baseServings;
+    const safeImg = r.imageUrl && r.imageUrl.startsWith('https://') ? r.imageUrl : null;
+    const safeLink = r.cardLink && r.cardLink.startsWith('https://') ? r.cardLink : null;
     return '<div class="pick-item">'
-    + (r.imageUrl ? '<img class="pick-thumb" src="'+r.imageUrl+'" loading="lazy">' : '<div class="pick-thumb" style="display:flex;align-items:center;justify-content:center;font-size:22px">🍽️</div>')
-    + '<div class="pick-info"><div class="pick-name">'+r.name+'</div><div class="pick-meta">'+[r.protein,r.cuisine].filter(Boolean).join(' · ')+'</div>'
-    + (r.cardLink ? '<a class="chip chip-pdf" href="'+r.cardLink+'" target="_blank" rel="noopener" style="display:inline-flex;margin-top:6px;">📄 Recipe Card</a>' : '')
+    + (safeImg ? '<img class="pick-thumb" src="'+safeImg+'" loading="lazy">' : '<div class="pick-thumb" style="display:flex;align-items:center;justify-content:center;font-size:22px">🍽️</div>')
+    + '<div class="pick-info"><div class="pick-name">'+esc(r.name)+'</div><div class="pick-meta">'+esc([r.protein,r.cuisine].filter(Boolean).join(' · '))+'</div>'
+    + (safeLink ? '<a class="chip chip-pdf" href="'+safeLink+'" target="_blank" rel="noopener" style="display:inline-flex;margin-top:6px;">📄 Recipe Card</a>' : '')
     + '<div class="servings-stepper" style="margin-top:10px;align-items:center;">'
     + '<span style="font-size:12px;color:var(--text2);margin-right:6px;">Servings:</span>'
     + '<button class="stepper-btn" style="width:30px;height:30px;font-size:20px;" onclick="event.stopPropagation();changeMultiplier('+r.id+',-1)">−</button>'
@@ -777,16 +836,17 @@ function renderShop() {
           ? ' <span style="color:var(--text2);font-size:12px">'+fmtAmt(item.amount)+(item.unit?' '+item.unit:'')+'</span>'
           : (item.count>1?' <span style="color:var(--text2);font-size:12px">(x'+item.count+')</span>':'');
         const recipeText = item.recipes.join('<br>');
-        return '<div class="shop-item'+(on?' checked':'')+'" onclick="toggleItem(this,\''+k.replace(/'/g,"\\'")+'\')">'
+        return '<div class="shop-item'+(on?' checked':'')+'" data-key="'+esc(k)+'" onclick="toggleItemByEl(this)">'
           + '<div class="shop-check'+(on?' on':'')+'"></div>'
-          + '<div class="shop-item-text">'+item.label+qtyText
-          + '<div class="shop-item-recipes">'+recipeText+'</div></div></div>';
+          + '<div class="shop-item-text">'+esc(item.label)+qtyText
+          + '<div class="shop-item-recipes">'+item.recipes.map(esc).join('<br>')+'</div></div></div>';
       }).join('')
     + '</div>'
   ).join('');
   updateShopSummary(items);
 }
 
+function toggleItemByEl(el) { toggleItem(el, el.dataset.key); }
 function toggleItem(el, key) {
   if (checkedItems.has(key)) { checkedItems.delete(key); el.classList.remove('checked'); el.querySelector('.shop-check').classList.remove('on'); }
   else { checkedItems.add(key); el.classList.add('checked'); el.querySelector('.shop-check').classList.add('on'); }
@@ -802,7 +862,7 @@ function renderRecipients() {
   if (!el) return;
   el.innerHTML = recipients.length
     ? recipients.map((email, i) =>
-        '<div class="email-row"><span>📬 ' + email + '</span>'
+        '<div class="email-row"><span>📬 ' + esc(email) + '</span>'
         + '<button class="email-row-remove" onclick="removeRecipient(' + i + ')">✕</button></div>'
       ).join('')
     : '<div style="font-size:13px;color:var(--text2);padding:6px 0">No recipients — add one below.</div>';
@@ -844,7 +904,7 @@ async function sendEmail() {
     btn.disabled = false; showToast('Configure n8n webhook first'); return;
   }
   try {
-    await fetch(N8N_WEBHOOK, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    await fetch(N8N_WEBHOOK, {method:'POST', headers:{'Content-Type':'application/json','X-Webhook-Secret':WEBHOOK_SECRET}, body:JSON.stringify(payload)});
     status.textContent = '✅ Sent! Check your inboxes.'; showToast('✅ Emails sent!'); btn.disabled = false;
   } catch(e) { status.textContent = '❌ Error sending. Try again.'; btn.disabled = false; }
 }
@@ -860,6 +920,72 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   clearTimeout(showToast._t); showToast._t = setTimeout(()=>t.classList.remove('show'), 2000);
+}
+
+// --- Setup screen (first-launch email collection) ---
+let setupEmails = [];
+function renderSetupEmailList() {
+  document.getElementById('setup-email-list').innerHTML = setupEmails.length
+    ? setupEmails.map((e, i) =>
+        '<div class="email-row"><span>📬 ' + esc(e) + '</span>'
+        + '<button class="email-row-remove" onclick="setupRemoveEmail(' + i + ')">✕</button></div>'
+      ).join('')
+    : '';
+}
+function setupAddEmail() {
+  const input = document.getElementById('setup-email-input');
+  const val = (input.value || '').trim().toLowerCase();
+  const errEl = document.getElementById('setup-email-error');
+  if (!val || !val.includes('@')) { errEl.textContent = 'Enter a valid email'; return; }
+  if (setupEmails.includes(val)) { errEl.textContent = 'Already added'; input.value = ''; return; }
+  errEl.textContent = '';
+  setupEmails.push(val);
+  input.value = '';
+  renderSetupEmailList();
+}
+function setupRemoveEmail(i) { setupEmails.splice(i, 1); renderSetupEmailList(); }
+function setupFinish() {
+  if (!setupEmails.length) { document.getElementById('setup-email-error').textContent = 'Add at least one email to continue.'; return; }
+  recipients = [...setupEmails];
+  savePrefs();
+  showPrefs();
+}
+
+// --- Change PIN screen ---
+let changePinInput = '', changePinNew = '', changePinStep = 'new';
+function showChangePin() {
+  changePinInput = ''; changePinNew = ''; changePinStep = 'new';
+  document.getElementById('change-pin-subtitle').textContent = 'Enter your new 4-digit PIN';
+  document.getElementById('change-pin-error').textContent = '';
+  updateChangePinDots();
+  showScreen('change-pin-screen');
+}
+function updateChangePinDots() {
+  for (let i = 0; i < 4; i++) document.getElementById('cpd' + i).classList.toggle('filled', i < changePinInput.length);
+}
+async function handleChangePin(k) {
+  if (k === 'del') { changePinInput = changePinInput.slice(0, -1); }
+  else if (k === '') { return; }
+  else if (changePinInput.length < 4) { changePinInput += k; }
+  updateChangePinDots();
+  if (changePinInput.length === 4) {
+    if (changePinStep === 'new') {
+      changePinNew = changePinInput; changePinInput = ''; changePinStep = 'confirm';
+      document.getElementById('change-pin-subtitle').textContent = 'Confirm your new PIN';
+      document.getElementById('change-pin-error').textContent = '';
+      updateChangePinDots();
+    } else {
+      if (changePinInput === changePinNew) {
+        localStorage.setItem('mealplanner_pin_hash', await hashPin(changePinInput));
+        showPrefs(); showToast('✅ PIN updated');
+      } else {
+        document.getElementById('change-pin-error').textContent = 'PINs did not match. Try again.';
+        changePinInput = ''; changePinNew = ''; changePinStep = 'new';
+        document.getElementById('change-pin-subtitle').textContent = 'Enter your new 4-digit PIN';
+        updateChangePinDots();
+      }
+    }
+  }
 }
 
 buildDeck();
