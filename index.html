@@ -41,15 +41,16 @@
   .swipe-header .logo-sm span { color: var(--accent); }
   .picks-badge { background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px; cursor: pointer; }
   .card-stack { position: relative; width: var(--card-w); height: var(--card-h); }
-  .recipe-card { position: absolute; inset: 0; border-radius: var(--radius); overflow: hidden; background: var(--surface); box-shadow: 0 8px 32px rgba(0,0,0,.5); cursor: grab; user-select: none; touch-action: none; }
+  .recipe-card { position: absolute; inset: 0; border-radius: var(--radius); overflow: hidden; background: var(--surface); box-shadow: 0 8px 32px rgba(0,0,0,.5); cursor: grab; user-select: none; touch-action: none; display: flex; flex-direction: column; }
   .recipe-card.dragging { cursor: grabbing; box-shadow: 0 16px 48px rgba(0,0,0,.7); }
   .recipe-card.fly-left  { animation: flyLeft .35s ease-in forwards; }
   .recipe-card.fly-right { animation: flyRight .35s ease-in forwards; }
   @keyframes flyLeft  { to { transform: translateX(-150vw) rotate(-25deg); opacity: 0; } }
   @keyframes flyRight { to { transform: translateX(150vw)  rotate( 25deg); opacity: 0; } }
-  .card-img { width: 100%; height: 66%; object-fit: cover; display: block; background: var(--surface2); }
-  .card-img-placeholder { width: 100%; height: 66%; display: flex; align-items: center; justify-content: center; font-size: 48px; background: var(--surface2); }
-  .card-body { padding: 14px 16px; }
+  .card-img { width: 100%; flex: 0 0 66%; object-fit: cover; display: block; background: var(--surface2); }
+  .card-img-placeholder { width: 100%; flex: 0 0 66%; display: flex; align-items: center; justify-content: center; font-size: 48px; background: var(--surface2); }
+  .card-body { padding: 14px 16px; flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+  .card-text-block { overflow: hidden; min-height: 0; }
   .card-name { font-size: 17px; font-weight: 700; line-height: 1.25; }
   .card-sub  { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .card-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
@@ -57,7 +58,7 @@
   .chip.protein { background: rgba(232,112,64,.18); color: var(--accent); }
   .chip.time    { background: rgba(245,166,35,.15); color: var(--accent2); }
   .chip.chip-pdf { background: rgba(100,180,255,.15); color: #4a7a56; text-decoration: none; cursor: pointer; font-size: 13px; padding: 5px 12px; }
-  .card-recipe-link { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 14px; padding: 10px 16px; border-radius: 10px; background: rgba(100,180,255,.15); color: #4a7a56; text-decoration: none; font-size: 15px; font-weight: 700; letter-spacing: 0.2px; }
+  .card-recipe-link { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: auto; padding: 10px 16px; border-radius: 10px; background: rgba(100,180,255,.15); color: #4a7a56; text-decoration: none; font-size: 15px; font-weight: 700; letter-spacing: 0.2px; flex-shrink: 0; }
   .stamp { position: absolute; top: 24px; padding: 6px 14px; border-radius: 8px; font-size: 22px; font-weight: 900; letter-spacing: 2px; border: 3px solid; opacity: 0; pointer-events: none; }
   .stamp-yes { left: 16px; color: var(--green); border-color: var(--green); transform: rotate(-15deg); }
   .stamp-no  { right: 16px; color: var(--red);   border-color: var(--red);   transform: rotate(15deg); }
@@ -140,8 +141,8 @@
   .cat-chip { flex-shrink: 0; padding: 6px 14px; border-radius: 20px; border: none; background: var(--surface2); color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
   .cat-chip.active { background: var(--accent); color: #fff; }
   .card-stack { margin-top: 0; }
-  #prefs-screen { background: var(--bg); gap: 0; justify-content: flex-start; padding-top: 48px; }
-  .prefs-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; max-width: 380px; padding: 0 20px; }
+  #prefs-screen { background: var(--bg); gap: 0; justify-content: flex-start; padding-top: 48px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .prefs-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; max-width: 380px; padding: 0 20px; padding-bottom: max(48px, env(safe-area-inset-bottom, 48px)); }
   .prefs-subtitle { font-size: 15px; color: var(--text2); text-align: center; line-height: 1.5; }
   .prefs-section-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text2); align-self: flex-start; }
   .protein-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
@@ -640,6 +641,7 @@ function buildCard(recipe, interactive) {
     : '<div class="card-img-placeholder">🍽️</div>')
     + '<div class="fav-badge" style="display:'+(favoritedIds.has(recipe.id)?'flex':'none')+'">⭐</div>'
     + '<div class="card-body">'
+    + '<div class="card-text-block">'
     + '<div class="card-name">'+esc(recipe.name)+'</div>'
     + (recipe.subtitle ? '<div class="card-sub">'+esc(recipe.subtitle)+'</div>' : '')
     + '<div class="card-chips">'
@@ -647,6 +649,7 @@ function buildCard(recipe, interactive) {
     + (recipe.cuisine ? '<span class="chip">'+esc(recipe.cuisine)+'</span>' : '')
     + (timeStr ? '<span class="chip time">⏱ '+esc(timeStr)+'</span>' : '')
     + (recipe.calories ? '<span class="chip">🔥 '+esc(recipe.calories)+' cal</span>' : '')
+    + '</div>'
     + '</div>'
     + (safeLink ? '<a class="card-recipe-link" href="'+safeLink+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">📄 Recipe Card</a>' : '')
     + '</div>'
