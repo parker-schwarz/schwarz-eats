@@ -36,44 +36,46 @@
   .pin-key:active { background: var(--accent); transform: scale(.92); }
   .pin-key.del { font-size: 18px; }
   .pin-error { color: var(--red); font-size: 13px; height: 18px; }
-  #swipe-screen { background: var(--bg); padding: 136px 0 24px; justify-content: flex-start; }
-  .swipe-header { position: absolute; top: 0; left: 0; right: 0; padding: 16px 20px 12px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+  #swipe-screen { background: var(--bg); padding: 0; display: block; align-items: stretch; justify-content: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .swipe-top { position: sticky; top: 0; z-index: 20; background: var(--bg); padding-top: env(safe-area-inset-top, 0px); box-shadow: 0 6px 10px -8px rgba(0,0,0,.35); }
+  .swipe-header { padding: 14px 20px 8px; display: flex; justify-content: space-between; align-items: center; }
   .swipe-header .logo-sm { font-size: 18px; font-weight: 800; }
   .swipe-header .logo-sm span { color: var(--accent); }
   .picks-badge { background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px; cursor: pointer; }
-  .card-stack { position: relative; width: var(--card-w); height: var(--card-h); }
-  .recipe-card { position: absolute; inset: 0; border-radius: var(--radius); overflow: hidden; background: var(--surface); box-shadow: 0 8px 32px rgba(0,0,0,.5); cursor: grab; user-select: none; touch-action: none; }
+  .card-stack { position: relative; width: var(--card-w); margin: 14px auto 0; }
+  .recipe-card { position: absolute; inset: 0; border-radius: var(--radius); overflow: hidden; background: var(--surface); box-shadow: 0 8px 32px rgba(0,0,0,.5); cursor: grab; user-select: none; touch-action: pan-y; }
+  .recipe-card.is-top { position: relative; inset: auto; }
   .recipe-card.dragging { cursor: grabbing; box-shadow: 0 16px 48px rgba(0,0,0,.7); }
   .recipe-card.fly-left  { animation: flyLeft .35s ease-in forwards; }
   .recipe-card.fly-right { animation: flyRight .35s ease-in forwards; }
   @keyframes flyLeft  { to { transform: translateX(-150vw) rotate(-25deg); opacity: 0; } }
   @keyframes flyRight { to { transform: translateX(150vw)  rotate( 25deg); opacity: 0; } }
-  .card-img { width: 100%; height: 54%; object-fit: cover; display: block; background: var(--surface2); }
-  .card-img-placeholder { width: 100%; height: 54%; display: flex; align-items: center; justify-content: center; font-size: 48px; background: var(--surface2); }
-  .card-body { position: absolute; top: 54%; bottom: 0; left: 0; right: 0; padding: 12px 16px; display: flex; flex-direction: column; overflow: hidden; }
-  .card-text-block { flex: 0 1 auto; overflow: hidden; min-height: 0; }
-  .card-name { font-size: 17px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-img { width: 100%; aspect-ratio: 4 / 3; height: auto; object-fit: cover; display: block; background: var(--surface2); }
+  .card-img-placeholder { width: 100%; aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center; font-size: 48px; background: var(--surface2); }
+  .card-body { position: static; padding: 14px 16px 16px; display: flex; flex-direction: column; }
+  .card-text-block { flex: 0 0 auto; }
+  .card-name { font-size: 17px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .card-sub  { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .card-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; flex-shrink: 0; }
   .chip { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; background: var(--surface2); color: var(--text2); }
   .chip.protein { background: rgba(232,112,64,.18); color: var(--accent); }
   .chip.time    { background: rgba(245,166,35,.15); color: var(--accent2); }
   .chip.chip-pdf { background: rgba(100,180,255,.15); color: #4a7a56; text-decoration: none; cursor: pointer; font-size: 13px; padding: 5px 12px; }
-  .card-recipe-link { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: auto; padding: 10px 16px; border-radius: 10px; background: rgba(100,180,255,.15); color: #4a7a56; text-decoration: none; font-size: 15px; font-weight: 700; letter-spacing: 0.2px; flex-shrink: 0; }
+  .card-recipe-link { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; padding: 10px 16px; border-radius: 10px; background: rgba(100,180,255,.15); color: #4a7a56; text-decoration: none; font-size: 15px; font-weight: 700; letter-spacing: 0.2px; flex-shrink: 0; }
   .stamp { position: absolute; top: 24px; padding: 6px 14px; border-radius: 8px; font-size: 22px; font-weight: 900; letter-spacing: 2px; border: 3px solid; opacity: 0; pointer-events: none; }
   .stamp-yes { left: 16px; color: var(--green); border-color: var(--green); transform: rotate(-15deg); }
   .stamp-no  { right: 16px; color: var(--red);   border-color: var(--red);   transform: rotate(15deg); }
-  .swipe-actions { display: flex; gap: 12px; position: absolute; bottom: max(28px, env(safe-area-inset-bottom, 28px)); left: 0; right: 0; justify-content: center; }
+  .swipe-actions { display: flex; gap: 12px; justify-content: center; padding: 18px 0 6px; }
   .action-btn { width: 56px; height: 56px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; transition: transform .15s; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
   .action-btn:active { transform: scale(.88); }
   .btn-skip  { background: var(--surface2); }
   .btn-pick  { background: var(--surface2); }
   .btn-undo  { background: var(--surface2); color: var(--text2); font-size: 20px; }
   .btn-never { background: var(--surface2); font-size: 20px; }
-  .ob-card { display: flex; flex-direction: column; height: 100%; background: var(--surface); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .ob-card { display: flex; flex-direction: column; background: var(--surface); }
   .ob-header { padding: 24px 20px 14px; text-align: center; border-bottom: 1px solid rgba(0,0,0,.07); }
   .ob-tagline { font-size: 13px; color: var(--text2); margin-top: 6px; }
-  .ob-body { flex: 1; display: flex; flex-direction: column; justify-content: safe center; padding: 16px 20px 20px; gap: 14px; }
+  .ob-body { display: flex; flex-direction: column; padding: 16px 20px 20px; gap: 14px; }
   .ob-swipe-row { display: flex; justify-content: space-between; background: var(--surface2); border-radius: 10px; padding: 10px 14px; }
   .ob-swipe-hint { font-size: 13px; color: var(--text2); }
   .ob-btn-list { display: flex; flex-direction: column; gap: 9px; }
@@ -86,7 +88,7 @@
   .btn-fave  { background: var(--surface2); color: var(--accent2); font-size: 20px; }
   .btn-fave.active { background: rgba(245,166,35,.2); }
   .fav-chip.active { background: var(--accent2); color: #1a1a1a; }
-  .swipe-progress { font-size: 12px; color: var(--text2); position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; }
+  .swipe-progress { font-size: 12px; color: var(--text2); text-align: center; padding-bottom: max(20px, env(safe-area-inset-bottom, 20px)); }
   .empty-deck { text-align: center; color: var(--text2); font-size: 15px; padding: 40px 20px; }
   .empty-deck .big { font-size: 48px; margin-bottom: 12px; }
   .view-picks-btn { margin-top: 20px; background: var(--accent); color: #fff; border: none; padding: 14px 36px; border-radius: 50px; font-size: 16px; font-weight: 700; cursor: pointer; }
@@ -137,19 +139,18 @@
   .send-status { font-size: 14px; color: var(--text2); text-align: center; height: 20px; }
   .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface2); color: var(--text); padding: 10px 20px; border-radius: 30px; font-size: 14px; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; z-index: 999; white-space: nowrap; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  .category-filter { position: absolute; top: 54px; left: 0; right: 0; display: flex; gap: 8px; padding: 8px 16px; overflow-x: auto; z-index: 10; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .category-filter { display: flex; gap: 8px; padding: 4px 16px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .category-filter::-webkit-scrollbar { display: none; }
   .cat-chip { flex-shrink: 0; padding: 6px 14px; border-radius: 20px; border: none; background: var(--surface2); color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
   .cat-chip.active { background: var(--accent); color: #fff; }
-  .card-stack { margin-top: 0; }
   #prefs-screen { background: var(--bg); gap: 0; justify-content: flex-start; padding-top: 48px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .prefs-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; max-width: 380px; padding: 0 20px; padding-bottom: max(48px, env(safe-area-inset-bottom, 48px)); }
   .prefs-subtitle { font-size: 15px; color: var(--text2); text-align: center; line-height: 1.5; }
   .prefs-section-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text2); align-self: flex-start; }
   .protein-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
-  .pref-toggle { padding: 10px 18px; border-radius: 50px; border: 2px solid var(--surface2); background: var(--surface); color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; transition: all .15s; }
+  .pref-toggle { padding: 10px 18px; border-radius: 50px; border: 2px solid var(--surface2); background: var(--surface); color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; transition: border-color .15s, background-color .15s, color .15s; }
   .pref-toggle.active { border-color: var(--accent); background: rgba(232,112,64,.15); color: var(--accent); }
-  .pref-toggle.excluded { border-color: var(--surface2); background: var(--surface2); color: var(--text2); opacity: .5; text-decoration: line-through; }
+  .pref-toggle.excluded { border-color: var(--surface2); background: transparent; color: var(--text2); }
   .prefs-count { font-size: 13px; color: var(--text2); text-align: center; }
   .prefs-count strong { color: var(--text); font-size: 15px; }
   .gear-btn { background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; padding: 4px 8px; line-height: 1; }
@@ -160,7 +161,7 @@
   .prefs-tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 12px; padding: 4px; width: 100%; }
   .prefs-tab { flex: 1; padding: 8px; border-radius: 9px; border: none; background: none; color: var(--text2); font-size: 14px; font-weight: 600; cursor: pointer; transition: all .15s; }
   .prefs-tab.active { background: var(--surface); color: var(--text); }
-  .time-filter { position: absolute; top: 94px; left: 0; right: 0; display: flex; gap: 8px; padding: 8px 16px; overflow-x: auto; z-index: 10; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .time-filter { display: flex; gap: 8px; padding: 0 16px 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .time-filter::-webkit-scrollbar { display: none; }
   .time-chip { flex-shrink: 0; padding: 5px 12px; border-radius: 20px; border: none; background: var(--surface2); color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
   .time-chip.active { background: var(--accent2); color: #000; }
@@ -202,6 +203,7 @@
 </div>
 
 <div id="swipe-screen" class="screen hidden">
+  <div class="swipe-top">
   <div class="swipe-header">
     <div class="logo-sm">Schwarz <span>Eats</span></div>
     <div style="display:flex;align-items:center;gap:6px">
@@ -222,6 +224,7 @@
     <button class="time-chip active" data-t="0" onclick="selectTime(this)">All times</button>
     <button class="time-chip" data-t="30" onclick="selectTime(this)">&#9889; &#8804;30 min</button>
     <button class="time-chip" data-t="45" onclick="selectTime(this)">&#8987; &#8804;45 min</button>
+  </div>
   </div>
   <div class="card-stack" id="card-stack"></div>
   <div class="swipe-actions">
@@ -613,6 +616,7 @@ function renderDeck() {
   visible.forEach((recipe, i) => {
     const isTop = i === visible.length - 1;
     const card = buildCard(recipe, isTop);
+    if (isTop) card.classList.add('is-top');
     card.style.transform = 'scale('+(1-(visible.length-1-i)*0.03)+') translateY('+((visible.length-1-i)*8)+'px)';
     card.style.zIndex = i;
     if (!isTop) card.style.pointerEvents = 'none';
@@ -666,18 +670,24 @@ function updateProgress() {
 }
 
 function setupDrag(card) {
-  let startX, startY, curX = 0, curY = 0, active = false;
+  let startX, startY, curX = 0, curY = 0, active = false, axis = null;
   const stampY = card.querySelector('.stamp-yes'), stampN = card.querySelector('.stamp-no');
   function onStart(e) {
     const pt = e.touches ? e.touches[0] : e;
-    startX = curX = pt.clientX; startY = curY = pt.clientY; active = true;
-    card.classList.add('dragging');
+    startX = curX = pt.clientX; startY = curY = pt.clientY; active = true; axis = null;
   }
   function onMove(e) {
-    if (!active) return; e.preventDefault();
+    if (!active) return;
     const pt = e.touches ? e.touches[0] : e;
     curX = pt.clientX; curY = pt.clientY;
     const dx = curX-startX, dy = curY-startY;
+    if (axis === null) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      axis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+      if (axis === 'h') card.classList.add('dragging');
+    }
+    if (axis === 'v') return;       // let the page scroll vertically
+    e.preventDefault();             // horizontal swipe: take over the gesture
     card.style.transform = 'translate('+dx+'px,'+dy+'px) rotate('+(dx*0.06)+'deg)';
     const pct = Math.min(Math.abs(dx)/80,1);
     if (dx>0) { stampY.style.opacity=pct; stampN.style.opacity=0; }
@@ -686,6 +696,8 @@ function setupDrag(card) {
   function onEnd() {
     if (!active) return; active = false;
     card.classList.remove('dragging');
+    if (axis !== 'h') { axis = null; return; }
+    axis = null;
     const dx = curX - startX;
     if (Math.abs(dx) > 80) { commitSwipe(dx > 0 ? 'right' : 'left'); }
     else {
