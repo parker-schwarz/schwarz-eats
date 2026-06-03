@@ -56,7 +56,7 @@
   .chip { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; background: var(--surface2); color: var(--text2); }
   .chip.protein { background: rgba(232,112,64,.18); color: var(--accent); }
   .chip.time    { background: rgba(245,166,35,.15); color: var(--accent2); }
-  .chip.chip-pdf { background: rgba(100,180,255,.15); color: #64b4ff; text-decoration: none; cursor: pointer; }
+  .chip.chip-pdf { background: rgba(100,180,255,.15); color: #64b4ff; text-decoration: none; cursor: pointer; font-size: 13px; padding: 5px 12px; }
   .stamp { position: absolute; top: 24px; padding: 6px 14px; border-radius: 8px; font-size: 22px; font-weight: 900; letter-spacing: 2px; border: 3px solid; opacity: 0; pointer-events: none; }
   .stamp-yes { left: 16px; color: var(--green); border-color: var(--green); transform: rotate(-15deg); }
   .stamp-no  { right: 16px; color: var(--red);   border-color: var(--red);   transform: rotate(15deg); }
@@ -64,9 +64,11 @@
   .action-btn { width: 62px; height: 62px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; transition: transform .15s; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
   .action-btn:active { transform: scale(.88); }
   .btn-skip { background: var(--surface2); color: var(--red); }
-  .btn-pick { background: var(--green); color: #fff; }
+  .btn-pick { background: var(--surface2); color: var(--green); }
   .btn-undo  { background: var(--surface2); color: var(--text2);   font-size: 18px; }
   .btn-never { background: var(--surface2); color: var(--red);    font-size: 18px; }
+  .no-icon { display: block; width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid var(--red); position: relative; }
+  .no-icon::after { content: ''; position: absolute; width: 26px; height: 2.5px; background: var(--red); top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); }
   .btn-fave  { background: var(--surface2); color: var(--accent2); font-size: 20px; }
   .btn-fave.active { background: rgba(245,166,35,.2); }
   .fav-chip.active { background: var(--accent2); color: #1a1a1a; }
@@ -137,6 +139,10 @@
   .prefs-count { font-size: 13px; color: var(--text2); text-align: center; }
   .prefs-count strong { color: var(--text); font-size: 15px; }
   .gear-btn { background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; padding: 4px 8px; line-height: 1; }
+  .servings-stepper { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  .stepper-btn { width: 24px; height: 24px; border-radius: 50%; border: none; background: var(--surface2); color: var(--text); font-size: 16px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .stepper-btn:active { background: var(--accent); }
+  .stepper-label { font-size: 12px; color: var(--text2); min-width: 48px; text-align: center; }
   .prefs-tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 12px; padding: 4px; width: 100%; }
   .prefs-tab { flex: 1; padding: 8px; border-radius: 9px; border: none; background: none; color: var(--text2); font-size: 14px; font-weight: 600; cursor: pointer; transition: all .15s; }
   .prefs-tab.active { background: var(--surface); color: var(--text); }
@@ -144,6 +150,7 @@
   .time-filter::-webkit-scrollbar { display: none; }
   .time-chip { flex-shrink: 0; padding: 5px 12px; border-radius: 20px; border: none; background: var(--surface2); color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
   .time-chip.active { background: var(--accent2); color: #000; }
+  .fav-badge { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; background: rgba(0,0,0,.55); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; z-index: 2; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -202,7 +209,7 @@
   </div>
   <div class="card-stack" id="card-stack"></div>
   <div class="swipe-actions">
-    <button class="action-btn btn-never" onclick="neverRecipe()">🚫</button>
+    <button class="action-btn btn-never" onclick="neverRecipe()"><span class="no-icon"></span></button>
     <button class="action-btn btn-undo"  onclick="undoSwipe()">↩</button>
     <button class="action-btn btn-skip"  onclick="swipeCard('left')">✕</button>
     <button class="action-btn btn-pick"  onclick="swipeCard('right')">✓</button>
@@ -253,7 +260,7 @@
 
 <script src="recipes.js"></script>
 <script>
-const PIN = "1215";
+const PIN = "7539";
 const N8N_WEBHOOK = "https://parkerschwarz.app.n8n.cloud/webhook/schwarz-eats-meal-plan";
 let recipients = ['parkerschwarz@gmail.com', 'allen.natalie9@gmail.com'];
 
@@ -289,6 +296,7 @@ loadPrefs();
 let deck = [];
 let history = [];
 let picks = [];
+let recipeMultipliers = {};
 let checkedItems = new Set();
 let currentCardEl = null;
 let deckIndex = 0;
@@ -433,7 +441,7 @@ function renderPrefsScreen(tab) {
       const on = !excludedDishTypes.has(key);
       return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="toggleDishType(this,\''+key+'\')">'+(on?'&#10003; ':'')+group.label+'</button>';
     }).join('');
-    const gfToggle = '<button class="pref-toggle '+(glutenFreeOnly?'active':'')+'" onclick="toggleGlutenFree()">'+(glutenFreeOnly?'&#10003; ':'')+'Gluten Free only</button>';
+    const gfToggle = '<button class="pref-toggle '+(glutenFreeOnly?'active':'excluded')+'" onclick="toggleGlutenFree()">'+(glutenFreeOnly?'&#10003; ':'')+'Gluten Free only</button>';
     container.innerHTML = dishToggles + gfToggle;
   }
   updatePrefsCount();
@@ -532,6 +540,7 @@ function buildCard(recipe, interactive) {
   card.innerHTML = (recipe.imageUrl
     ? '<img class="card-img" src="'+recipe.imageUrl+'" loading="lazy" draggable="false">'
     : '<div class="card-img-placeholder">🍽️</div>')
+    + '<div class="fav-badge" style="display:'+(favoritedIds.has(recipe.id)?'flex':'none')+'">⭐</div>'
     + '<div class="card-body">'
     + '<div class="card-name">'+recipe.name+'</div>'
     + (recipe.subtitle ? '<div class="card-sub">'+recipe.subtitle+'</div>' : '')
@@ -616,14 +625,13 @@ function faveRecipe() {
   if (deckIndex >= deck.length) return;
   const recipe = deck[deckIndex];
   const alreadyFaved = favoritedIds.has(recipe.id);
-  if (alreadyFaved) { favoritedIds.delete(recipe.id); showToast('⭐ Unfavorited'); }
+  if (alreadyFaved) { favoritedIds.delete(recipe.id); showToast('Unfavorited'); }
   else { favoritedIds.add(recipe.id); showToast('⭐ Favorited!'); }
   savePrefs();
   history.push({recipe, dir: alreadyFaved ? 'unfave' : 'fave', deckIndex});
   document.getElementById('btn-fave').classList.toggle('active', favoritedIds.has(recipe.id));
-  currentCardEl.classList.add('fly-right');
-  deckIndex++;
-  setTimeout(() => renderDeck(), 350);
+  const badge = currentCardEl && currentCardEl.querySelector('.fav-badge');
+  if (badge) badge.style.display = favoritedIds.has(recipe.id) ? 'flex' : 'none';
 }
 function toggleFavoritesOnly(btn) {
   favoritesOnly = !favoritesOnly;
@@ -645,31 +653,50 @@ function undoSwipe() {
 function renderPicks() {
   const el = document.getElementById('picks-list');
   if (!picks.length) { el.innerHTML = '<div class="empty-picks">No meals picked yet.<br>Go back and swipe! 👆</div>'; return; }
-  el.innerHTML = picks.map(r =>
-    '<div class="pick-item">'
+  el.innerHTML = picks.map(r => {
+    const mult = recipeMultipliers[r.id] || 1;
+    const baseServings = parseInt(r.servings) || 2;
+    const totalServings = baseServings * mult;
+    return '<div class="pick-item">'
     + (r.imageUrl ? '<img class="pick-thumb" src="'+r.imageUrl+'" loading="lazy">' : '<div class="pick-thumb" style="display:flex;align-items:center;justify-content:center;font-size:22px">🍽️</div>')
     + '<div class="pick-info"><div class="pick-name">'+r.name+'</div><div class="pick-meta">'+[r.protein,r.cuisine].filter(Boolean).join(' · ')+'</div>'
-    + (r.cardLink ? '<a class="chip chip-pdf" href="'+r.cardLink+'" target="_blank" rel="noopener" style="display:inline-flex;margin-top:6px;font-size:11px">📄 Recipe Card</a>' : '')
+    + (r.cardLink ? '<a class="chip chip-pdf" href="'+r.cardLink+'" target="_blank" rel="noopener" style="display:inline-flex;margin-top:6px;">📄 Recipe Card</a>' : '')
+    + '<div class="servings-stepper" style="margin-top:10px;align-items:center;">'
+    + '<span style="font-size:12px;color:var(--text2);margin-right:6px;">Servings:</span>'
+    + '<button class="stepper-btn" style="width:30px;height:30px;font-size:20px;" onclick="event.stopPropagation();changeMultiplier('+r.id+',-1)">−</button>'
+    + '<span style="font-size:16px;font-weight:700;color:var(--text);min-width:32px;text-align:center;">'+totalServings+'</span>'
+    + '<button class="stepper-btn" style="width:30px;height:30px;font-size:20px;" onclick="event.stopPropagation();changeMultiplier('+r.id+',1)">+</button>'
     + '</div>'
-    + '<button class="pick-remove" onclick="removePick('+r.id+')">✕</button></div>'
-  ).join('');
+    + '</div>'
+    + '<button class="pick-remove" onclick="removePick('+r.id+')">✕</button></div>';
+  }).join('');
 }
-function removePick(id) { picks = picks.filter(p => p.id !== id); shopInitialized = false; renderPicks(); updateProgress(); }
+function removePick(id) { picks = picks.filter(p => p.id !== id); delete recipeMultipliers[id]; shopInitialized = false; renderPicks(); updateProgress(); }
+function changeMultiplier(id, delta) {
+  const cur = recipeMultipliers[id] || 1;
+  const next = Math.max(1, Math.min(10, cur + delta));
+  recipeMultipliers[id] = next;
+  shopInitialized = false;
+  renderPicks();
+}
 
 function fmtAmt(n) {
   return parseFloat(n.toFixed(2)).toString();
 }
 function buildShoppingList() {
   const agg = {};
-  picks.forEach(r => (r.ingredients||[]).forEach(ing => {
-    const q = (r.qty||{})[ing];
-    const unit = q && q.amount != null ? (q.unit || '') : '';
-    const key = ing.toLowerCase().trim() + '|' + unit;
-    if (!agg[key]) agg[key] = {label:ing, unit:unit, amount:0, count:0, hasQty:false, key:key, recipes:[]};
-    agg[key].count++;
-    if (q && q.amount != null) { agg[key].amount += q.amount; agg[key].hasQty = true; }
-    if (!agg[key].recipes.includes(r.name)) agg[key].recipes.push(r.name);
-  }));
+  picks.forEach(r => {
+    const mult = recipeMultipliers[r.id] || 1;
+    (r.ingredients||[]).forEach(ing => {
+      const q = (r.qty||{})[ing];
+      const unit = q && q.amount != null ? (q.unit || '') : '';
+      const key = ing.toLowerCase().trim() + '|' + unit;
+      if (!agg[key]) agg[key] = {label:ing, unit:unit, amount:0, count:0, hasQty:false, key:key, recipes:[]};
+      agg[key].count += mult;
+      if (q && q.amount != null) { agg[key].amount += q.amount * mult; agg[key].hasQty = true; }
+      if (!agg[key].recipes.includes(r.name)) agg[key].recipes.push(r.name);
+    });
+  });
   return Object.values(agg).sort((a,b) => a.label.localeCompare(b.label));
 }
 
