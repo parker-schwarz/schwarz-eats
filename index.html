@@ -17,7 +17,7 @@
     --text2: #6a7464;
     --radius: 18px;
     --card-w: min(88vw, 360px);
-    --card-h: min(72vh, 540px);
+    --card-h: min(62vh, 460px);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100dvh; overflow: hidden; }
@@ -35,7 +35,7 @@
   .pin-key:active { background: var(--accent); transform: scale(.92); }
   .pin-key.del { font-size: 18px; }
   .pin-error { color: var(--red); font-size: 13px; height: 18px; }
-  #swipe-screen { background: var(--bg); padding: 0; }
+  #swipe-screen { background: var(--bg); padding: 136px 0 0; justify-content: flex-start; }
   .swipe-header { position: absolute; top: 0; left: 0; right: 0; padding: 16px 20px 12px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
   .swipe-header .logo-sm { font-size: 18px; font-weight: 800; }
   .swipe-header .logo-sm span { color: var(--accent); }
@@ -139,7 +139,7 @@
   .category-filter::-webkit-scrollbar { display: none; }
   .cat-chip { flex-shrink: 0; padding: 6px 14px; border-radius: 20px; border: none; background: var(--surface2); color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
   .cat-chip.active { background: var(--accent); color: #fff; }
-  .card-stack { margin-top: 130px; }
+  .card-stack { margin-top: 0; }
   #prefs-screen { background: var(--bg); gap: 0; justify-content: flex-start; padding-top: 48px; }
   .prefs-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; max-width: 380px; padding: 0 20px; }
   .prefs-subtitle { font-size: 15px; color: var(--text2); text-align: center; line-height: 1.5; }
