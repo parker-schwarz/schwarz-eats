@@ -192,7 +192,8 @@
     <div class="prefs-subtitle">Choose what to include.<br>Toggle off anything you never want to see.</div>
     <div class="prefs-tabs">
       <button class="prefs-tab active" id="tab-proteins" onclick="renderPrefsScreen('proteins')">Proteins</button>
-      <button class="prefs-tab" id="tab-dish" onclick="renderPrefsScreen('dish')">Dish Types</button>
+      <button class="prefs-tab" id="tab-dish" onclick="renderPrefsScreen('dish')">Dishes</button>
+      <button class="prefs-tab" id="tab-dietary" onclick="renderPrefsScreen('dietary')">Dietary</button>
     </div>
     <div id="pref-toggles-container" class="protein-grid"></div>
     <div id="prefs-count" class="prefs-count"></div>
@@ -350,12 +351,15 @@ function loadPrefs() {
     favoritedIds = new Set(prefs.favIds   || []);
     if (Array.isArray(prefs.recipients) && prefs.recipients.length) recipients = prefs.recipients;
     if (prefs.glutenFreeOnly) glutenFreeOnly = true;
+    if (prefs.maxCalories) maxCalories = prefs.maxCalories;
   } catch(e) { excludedGroups = new Set(); excludedDishTypes = new Set(); hiddenIds = new Set(); favoritedIds = new Set(); }
 }
 let hiddenIds    = new Set();
 let favoritedIds = new Set();
+let glutenFreeOnly = false;
+let maxCalories = null;
 function savePrefs() {
-  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 4, excludedGroups: [...excludedGroups], excludedDishTypes: [...excludedDishTypes], hiddenIds: [...hiddenIds], favIds: [...favoritedIds], recipients, glutenFreeOnly }));
+  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 5, excludedGroups: [...excludedGroups], excludedDishTypes: [...excludedDishTypes], hiddenIds: [...hiddenIds], favIds: [...favoritedIds], recipients, glutenFreeOnly, maxCalories }));
 }
 loadPrefs();
 let onboardingDone = false;
@@ -368,7 +372,6 @@ let currentCardEl = null;
 let deckIndex = 0;
 let selectedCategory = 'all';
 let selectedMaxTime = null;
-let glutenFreeOnly = false;
 let favoritesOnly = false;
 let shopInitialized = false;
 
@@ -434,6 +437,9 @@ function buildDeck() {
   if (glutenFreeOnly) {
     pool = pool.filter(r => r.tags && (r.tags.includes('Gluten Free') || r.tags.includes('Gluten-Free Friendly')));
   }
+  if (maxCalories) {
+    pool = pool.filter(r => r.calories > 0 && r.calories <= maxCalories);
+  }
   pool = pool.filter(r => !hiddenIds.has(r.id));
   if (favoritesOnly) {
     pool = pool.filter(r => favoritedIds.has(r.id));
@@ -478,7 +484,14 @@ function selectCategory(btn) {
 function toggleGlutenFree() {
   glutenFreeOnly = !glutenFreeOnly;
   savePrefs();
-  renderPrefsScreen('dish');
+  renderPrefsScreen('dietary');
+  updatePrefsCount();
+}
+
+function setMaxCalories(val) {
+  maxCalories = (maxCalories === val) ? null : val; // tap active pill = clear
+  savePrefs();
+  renderPrefsScreen('dietary');
   updatePrefsCount();
 }
 
@@ -526,19 +539,28 @@ function renderPrefsScreen(tab) {
   tab = tab || 'proteins';
   document.getElementById('tab-proteins').classList.toggle('active', tab === 'proteins');
   document.getElementById('tab-dish').classList.toggle('active', tab === 'dish');
+  document.getElementById('tab-dietary').classList.toggle('active', tab === 'dietary');
   const container = document.getElementById('pref-toggles-container');
   if (tab === 'proteins') {
     container.innerHTML = Object.entries(PROTEIN_GROUPS).map(([key, group]) => {
       const on = !excludedGroups.has(key);
       return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="toggleProteinGroup(this,\''+key+'\')">'+(on?'&#10003; ':'')+group.label+'</button>';
     }).join('');
-  } else {
-    const dishToggles = Object.entries(DISH_TYPE_GROUPS).map(([key, group]) => {
+  } else if (tab === 'dish') {
+    container.innerHTML = Object.entries(DISH_TYPE_GROUPS).map(([key, group]) => {
       const on = !excludedDishTypes.has(key);
       return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="toggleDishType(this,\''+key+'\')">'+(on?'&#10003; ':'')+group.label+'</button>';
     }).join('');
+  } else {
     const gfToggle = '<button class="pref-toggle '+(glutenFreeOnly?'active':'excluded')+'" onclick="toggleGlutenFree()">'+(glutenFreeOnly?'&#10003; ':'')+'Gluten Free only</button>';
-    container.innerHTML = dishToggles + gfToggle;
+    const calOptions = [{v:null,l:'Any'},{v:500,l:'&#8804;500'},{v:600,l:'&#8804;600'},{v:700,l:'&#8804;700'}];
+    const calPills = calOptions.map(o => {
+      const on = (maxCalories || null) === o.v;
+      return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="setMaxCalories('+(o.v===null?'null':o.v)+')">'+(on?'&#10003; ':'')+o.l+'</button>';
+    }).join('');
+    container.innerHTML = gfToggle
+      + '<div class="prefs-section-title" style="width:100%;margin-top:6px">Max Calories</div>'
+      + calPills;
   }
   updatePrefsCount();
 }
@@ -590,6 +612,12 @@ function updatePrefsCount() {
       }
       return true;
     });
+  }
+  if (glutenFreeOnly) {
+    pool = pool.filter(r => r.tags && (r.tags.includes('Gluten Free') || r.tags.includes('Gluten-Free Friendly')));
+  }
+  if (maxCalories) {
+    pool = pool.filter(r => r.calories > 0 && r.calories <= maxCalories);
   }
   document.getElementById('prefs-count').innerHTML = '<strong>'+pool.length.toLocaleString()+'</strong> of '+RECIPES.length.toLocaleString()+' recipes will appear';
 }
