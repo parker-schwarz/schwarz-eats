@@ -490,7 +490,7 @@ async function handlePin(k) {
     const expected = stored || DEFAULT_PIN_HASH;
     if (hash === expected) {
       document.getElementById('pin-error').textContent = '';
-      if (!recipients.length) { showScreen('setup-screen'); } else { showPrefs(); }
+      showPrefs();
     } else {
       document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
       pinInput = ''; updatePinDots();
