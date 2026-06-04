@@ -97,7 +97,7 @@
   .back-btn { background: var(--surface2); border: none; color: var(--text); font-size: 20px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .screen-title { font-size: 20px; font-weight: 800; }
   .picks-list { width: 100%; overflow-y: auto; flex: 1; padding-bottom: 100px; }
-  .pick-item { display: flex; align-items: center; gap: 14px; background: var(--surface); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .pick-item { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; background: var(--surface); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
   .pick-thumb { width: 88px; height: 88px; border-radius: 10px; object-fit: cover; background: var(--surface2); flex-shrink: 0; }
   .pick-info { flex: 1; min-width: 0; }
   .pick-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -154,7 +154,7 @@
   .prefs-count { font-size: 13px; color: var(--text2); text-align: center; }
   .prefs-count strong { color: var(--text); font-size: 15px; }
   .gear-btn { background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; padding: 4px 8px; line-height: 1; }
-  .servings-stepper { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .servings-stepper { display: flex; align-items: center; gap: 8px; width: 100%; }
   .stepper-btn { width: 24px; height: 24px; border-radius: 50%; border: none; background: var(--surface2); color: var(--text); font-size: 16px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .stepper-btn:active { background: var(--accent); }
   .stepper-label { font-size: 12px; color: var(--text2); min-width: 48px; text-align: center; }
@@ -814,14 +814,15 @@ function renderPicks() {
     + (safeImg ? '<img class="pick-thumb" src="'+safeImg+'" loading="lazy">' : '<div class="pick-thumb" style="display:flex;align-items:center;justify-content:center;font-size:22px">🍽️</div>')
     + '<div class="pick-info"><div class="pick-name">'+esc(r.name)+'</div><div class="pick-meta">'+esc([r.protein,r.cuisine].filter(Boolean).join(' · '))+'</div>'
     + (safeLink ? '<a class="chip chip-pdf" href="'+safeLink+'" target="_blank" rel="noopener" style="display:inline-flex;margin-top:6px;">📄 Recipe Card</a>' : '')
-    + '<div class="servings-stepper" style="margin-top:10px;align-items:center;">'
-    + '<span style="font-size:12px;color:var(--text2);margin-right:6px;">Servings:</span>'
+    + '</div>'
+    + '<button class="pick-remove" onclick="removePick('+r.id+')">✕</button>'
+    + '<div class="servings-stepper">'
+    + '<span style="font-size:13px;color:var(--text2);margin-right:2px;">Servings:</span>'
     + '<button class="stepper-btn" style="width:30px;height:30px;font-size:20px;" onclick="event.stopPropagation();changeMultiplier('+r.id+',-1)">−</button>'
     + '<span style="font-size:16px;font-weight:700;color:var(--text);min-width:32px;text-align:center;">'+totalServings+'</span>'
     + '<button class="stepper-btn" style="width:30px;height:30px;font-size:20px;" onclick="event.stopPropagation();changeMultiplier('+r.id+',1)">+</button>'
     + '</div>'
-    + '</div>'
-    + '<button class="pick-remove" onclick="removePick('+r.id+')">✕</button></div>';
+    + '</div>';
   }).join('');
 }
 function removePick(id) { picks = picks.filter(p => p.id !== id); delete recipeServings[id]; shopInitialized = false; renderPicks(); updateProgress(); }
