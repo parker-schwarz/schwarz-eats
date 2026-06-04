@@ -590,15 +590,16 @@ function updatePinDots() {
   for (let i = 0; i < 4; i++) document.getElementById('d'+i).classList.toggle('filled', i < pinInput.length);
 }
 // "Forgot PIN?" — removes only the custom PIN hash, so login falls back to the
-// default PIN (7539). Recipes, favorites, picks, and settings are untouched.
-// Note: the "7539" in the message must match DEFAULT_PIN_HASH above.
+// default PIN (7539, defined by DEFAULT_PIN_HASH above). Recipes, favorites,
+// picks, and settings are untouched. The toast is intentionally generic and
+// does NOT reveal the default PIN — share it out of band.
 function forgotPin() {
   if (!confirm('Reset your PIN back to the default?\n\nYour recipes, favorites, picks, and settings will NOT be affected.')) return;
   localStorage.removeItem('mealplanner_pin_hash');
   pinInput = '';
   updatePinDots();
   document.getElementById('pin-error').textContent = '';
-  showToast('✅ PIN reset to the default: 7539');
+  showToast('✅ PIN reset to default');
 }
 function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
 function showSwipe() { showScreen('swipe-screen'); renderDeck(); }
