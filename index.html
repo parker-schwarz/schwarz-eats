@@ -2,29 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<!-- App renders at 1.25x on all phones (matches an iOS "Zoomed" display). Keep
+     each device's OS display-zoom on Standard; the app provides the magnification.
+     To retune the size, change all three 1.25 values together. -->
+<meta name="viewport" content="initial-scale=1.25, minimum-scale=1.25, maximum-scale=1.25, user-scalable=no" />
 <meta name="color-scheme" content="light" />
 <title>Schwarz Meal Planner</title>
-<script>
-  // Android renders at true 100%; iPhone "Zoomed" display mode magnifies ~1.25x.
-  // Parker prefers the larger look, so lift Android up to match by narrowing its
-  // CSS viewport (the same mechanism iOS Zoomed uses). iPhone is left untouched.
-  // To retune the match, change ANDROID_ZOOM only.
-  (function () {
-    var ANDROID_ZOOM = 1.25;
-    if (/Android/i.test(navigator.userAgent)) {
-      document.documentElement.classList.add('is-android');
-      var vp = document.querySelector('meta[name="viewport"]');
-      if (vp) {
-        vp.setAttribute('content',
-          'initial-scale=' + ANDROID_ZOOM +
-          ', minimum-scale=' + ANDROID_ZOOM +
-          ', maximum-scale=' + ANDROID_ZOOM +
-          ', user-scalable=no');
-      }
-    }
-  })();
-</script>
 <style>
   :root {
     --bg: #e0e8db;
