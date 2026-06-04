@@ -199,6 +199,7 @@
     <button class="pin-key" data-k=""></button><button class="pin-key" data-k="0">0</button><button class="pin-key del" data-k="del">⌫</button>
   </div>
   <div class="pin-error" id="pin-error"></div>
+  <button class="reset-link" onclick="forgotPin()">Forgot PIN?</button>
 </div>
 
 <div id="prefs-screen" class="screen hidden">
@@ -587,6 +588,17 @@ async function handlePin(k) {
 }
 function updatePinDots() {
   for (let i = 0; i < 4; i++) document.getElementById('d'+i).classList.toggle('filled', i < pinInput.length);
+}
+// "Forgot PIN?" — removes only the custom PIN hash, so login falls back to the
+// default PIN (7539). Recipes, favorites, picks, and settings are untouched.
+// Note: the "7539" in the message must match DEFAULT_PIN_HASH above.
+function forgotPin() {
+  if (!confirm('Reset your PIN back to the default?\n\nYour recipes, favorites, picks, and settings will NOT be affected.')) return;
+  localStorage.removeItem('mealplanner_pin_hash');
+  pinInput = '';
+  updatePinDots();
+  document.getElementById('pin-error').textContent = '';
+  showToast('✅ PIN reset to the default: 7539');
 }
 function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
 function showSwipe() { showScreen('swipe-screen'); renderDeck(); }
