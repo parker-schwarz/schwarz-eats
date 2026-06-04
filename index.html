@@ -3,7 +3,28 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="color-scheme" content="light" />
 <title>Schwarz Meal Planner</title>
+<script>
+  // Android renders at true 100%; iPhone "Zoomed" display mode magnifies ~1.25x.
+  // Parker prefers the larger look, so lift Android up to match by narrowing its
+  // CSS viewport (the same mechanism iOS Zoomed uses). iPhone is left untouched.
+  // To retune the match, change ANDROID_ZOOM only.
+  (function () {
+    var ANDROID_ZOOM = 1.25;
+    if (/Android/i.test(navigator.userAgent)) {
+      document.documentElement.classList.add('is-android');
+      var vp = document.querySelector('meta[name="viewport"]');
+      if (vp) {
+        vp.setAttribute('content',
+          'initial-scale=' + ANDROID_ZOOM +
+          ', minimum-scale=' + ANDROID_ZOOM +
+          ', maximum-scale=' + ANDROID_ZOOM +
+          ', user-scalable=no');
+      }
+    }
+  })();
+</script>
 <style>
   :root {
     --bg: #e0e8db;
@@ -20,7 +41,7 @@
     --card-h: min(calc(100dvh - 162px), 620px);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; color-scheme: light; }
   body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100dvh; overflow: hidden; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 20px; transition: opacity .3s, transform .3s; }
   .screen.hidden { opacity: 0; pointer-events: none; transform: translateY(20px); }
@@ -153,7 +174,8 @@
   .pref-toggle.excluded { border-color: var(--surface2); background: transparent; color: var(--text2); }
   .prefs-count { font-size: 13px; color: var(--text2); text-align: center; }
   .prefs-count strong { color: var(--text); font-size: 15px; }
-  .gear-btn { background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; padding: 4px 8px; line-height: 1; }
+  .gear-btn { background: none; border: none; color: var(--text2); cursor: pointer; padding: 4px 8px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+  .gear-btn svg { display: block; width: 22px; height: 22px; }
   .servings-stepper { display: flex; align-items: center; gap: 8px; width: 100%; }
   .stepper-btn { width: 24px; height: 24px; border-radius: 50%; border: none; background: var(--surface2); color: var(--text); font-size: 16px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .stepper-btn:active { background: var(--accent); }
@@ -217,7 +239,7 @@
   <div class="swipe-header">
     <div class="logo-sm">Schwarz <span>Eats</span></div>
     <div style="display:flex;align-items:center;gap:6px">
-      <button class="gear-btn" onclick="showPrefs()" title="Edit preferences">&#9881;</button>
+      <button class="gear-btn" onclick="showPrefs()" title="Edit preferences" aria-label="Edit preferences"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
       <div class="picks-badge" id="picks-badge" onclick="showPicks()">0 picked</div>
     </div>
   </div>
