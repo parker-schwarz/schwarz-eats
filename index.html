@@ -43,7 +43,6 @@
   .swipe-header .logo-sm span { color: var(--accent); }
   .picks-badge { background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px; cursor: pointer; }
   .card-stack { position: relative; width: var(--card-w); height: var(--card-h); margin: 14px auto 0; }
-  .card-stack:has(.ob-card) { height: auto; }
   .recipe-card { position: absolute; inset: 0; display: flex; flex-direction: column; border-radius: var(--radius); overflow: hidden; background: var(--surface); box-shadow: 0 8px 32px rgba(0,0,0,.5); cursor: grab; user-select: none; touch-action: pan-y; }
   .recipe-card.is-top { position: relative; inset: auto; height: 100%; }
   .recipe-card.dragging { cursor: grabbing; box-shadow: 0 16px 48px rgba(0,0,0,.7); }
@@ -461,11 +460,11 @@ function buildOnboardingCard() {
     + '<div class="ob-body">'
     + '<div class="ob-swipe-row"><div class="ob-swipe-hint">👈 Swipe left to skip</div><div class="ob-swipe-hint">Swipe right to pick 👉</div></div>'
     + '<div class="ob-btn-list">'
-    + '<div class="ob-btn-row"><span class="ob-icon">👍</span><div class="ob-label"><strong>Pick it</strong> — adds to this week\'s menu</div></div>'
-    + '<div class="ob-btn-row"><span class="ob-icon">👎</span><div class="ob-label"><strong>Skip</strong> — you\'ll see it again later</div></div>'
-    + '<div class="ob-btn-row"><span class="ob-icon">⭐</span><div class="ob-label"><strong>Favorite</strong> — save for quick access</div></div>'
-    + '<div class="ob-btn-row"><span class="ob-icon">↩</span><div class="ob-label"><strong>Undo</strong> — take back your last swipe</div></div>'
-    + '<div class="ob-btn-row"><span class="ob-icon">🗑️</span><div class="ob-label"><strong>Hide forever</strong> — never show this recipe again</div></div>'
+    + '<div class="ob-btn-row"><span class="ob-icon">👍</span><div class="ob-label"><strong>Pick it</strong>: add to your menu</div></div>'
+    + '<div class="ob-btn-row"><span class="ob-icon">👎</span><div class="ob-label"><strong>Skip</strong>: see it again later</div></div>'
+    + '<div class="ob-btn-row"><span class="ob-icon">⭐</span><div class="ob-label"><strong>Favorite</strong>: save for later</div></div>'
+    + '<div class="ob-btn-row"><span class="ob-icon">↩</span><div class="ob-label"><strong>Undo</strong>: take back a swipe</div></div>'
+    + '<div class="ob-btn-row"><span class="ob-icon">🗑️</span><div class="ob-label"><strong>Hide forever</strong>: never show again</div></div>'
     + '</div>'
     + '<div class="ob-cta">Swipe right to start! →</div>'
     + '</div></div>'
