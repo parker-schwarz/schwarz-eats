@@ -541,7 +541,7 @@ function setMaxCalories(val) {
   updatePrefsCount();
 }
 
-document.querySelectorAll('.pin-key').forEach(btn => btn.addEventListener('click', () => handlePin(btn.dataset.k)));
+document.querySelectorAll('#pin-screen .pin-key').forEach(btn => btn.addEventListener('click', () => handlePin(btn.dataset.k)));
 
 async function handlePin(k) {
   if (k === 'del') { pinInput = pinInput.slice(0,-1); }
