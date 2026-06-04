@@ -380,14 +380,18 @@ function loadPrefs() {
     if (Array.isArray(prefs.recipients) && prefs.recipients.length) recipients = prefs.recipients;
     if (prefs.glutenFreeOnly) glutenFreeOnly = true;
     if (prefs.maxCalories) maxCalories = prefs.maxCalories;
+    if (prefs.minProtein) minProtein = prefs.minProtein;
+    if (prefs.minFiber) minFiber = prefs.minFiber;
   } catch(e) { excludedGroups = new Set(); excludedDishTypes = new Set(); hiddenIds = new Set(); favoritedIds = new Set(); }
 }
 let hiddenIds    = new Set();
 let favoritedIds = new Set();
 let glutenFreeOnly = false;
 let maxCalories = null;
+let minProtein = null;
+let minFiber = null;
 function savePrefs() {
-  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 6, excludedGroups: [...excludedGroups], excludedDishTypes: [...excludedDishTypes], hiddenIds: [...hiddenIds], favIds: [...favoritedIds], recipients, glutenFreeOnly, maxCalories, pickIds: picks.map(p => p.id), recipeServings }));
+  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 7, excludedGroups: [...excludedGroups], excludedDishTypes: [...excludedDishTypes], hiddenIds: [...hiddenIds], favIds: [...favoritedIds], recipients, glutenFreeOnly, maxCalories, minProtein, minFiber, pickIds: picks.map(p => p.id), recipeServings }));
 }
 loadPrefs();
 let onboardingDone = false;
@@ -473,6 +477,12 @@ function buildDeck() {
   if (maxCalories) {
     pool = pool.filter(r => r.calories > 0 && r.calories <= maxCalories);
   }
+  if (minProtein) {
+    pool = pool.filter(r => r.proteinG > 0 && r.proteinG >= minProtein);
+  }
+  if (minFiber) {
+    pool = pool.filter(r => r.fiberG > 0 && r.fiberG >= minFiber);
+  }
   pool = pool.filter(r => !hiddenIds.has(r.id));
   if (favoritesOnly) {
     pool = pool.filter(r => favoritedIds.has(r.id));
@@ -541,6 +551,20 @@ function setMaxCalories(val) {
   updatePrefsCount();
 }
 
+function setMinProtein(val) {
+  minProtein = (minProtein === val) ? null : val; // tap active pill = clear
+  savePrefs();
+  renderPrefsScreen('dietary');
+  updatePrefsCount();
+}
+
+function setMinFiber(val) {
+  minFiber = (minFiber === val) ? null : val; // tap active pill = clear
+  savePrefs();
+  renderPrefsScreen('dietary');
+  updatePrefsCount();
+}
+
 document.querySelectorAll('#pin-screen .pin-key').forEach(btn => btn.addEventListener('click', () => handlePin(btn.dataset.k)));
 
 async function handlePin(k) {
@@ -604,9 +628,23 @@ function renderPrefsScreen(tab) {
       const on = (maxCalories || null) === o.v;
       return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="setMaxCalories('+(o.v===null?'null':o.v)+')">'+o.l+'</button>';
     }).join('');
+    const proOptions = [{v:null,l:'Any'},{v:25,l:'&#8805;25g'},{v:35,l:'&#8805;35g'},{v:45,l:'&#8805;45g'}];
+    const proPills = proOptions.map(o => {
+      const on = (minProtein || null) === o.v;
+      return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="setMinProtein('+(o.v===null?'null':o.v)+')">'+o.l+'</button>';
+    }).join('');
+    const fibOptions = [{v:null,l:'Any'},{v:5,l:'&#8805;5g'},{v:8,l:'&#8805;8g'},{v:12,l:'&#8805;12g'}];
+    const fibPills = fibOptions.map(o => {
+      const on = (minFiber || null) === o.v;
+      return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="setMinFiber('+(o.v===null?'null':o.v)+')">'+o.l+'</button>';
+    }).join('');
     container.innerHTML = gfToggle
       + '<div class="prefs-section-title" style="width:100%;margin-top:6px">Max Calories</div>'
-      + calPills;
+      + calPills
+      + '<div class="prefs-section-title" style="width:100%;margin-top:6px">Min Protein</div>'
+      + proPills
+      + '<div class="prefs-section-title" style="width:100%;margin-top:6px">Min Fiber</div>'
+      + fibPills;
   }
   updatePrefsCount();
 }
@@ -662,6 +700,12 @@ function updatePrefsCount() {
   }
   if (maxCalories) {
     pool = pool.filter(r => r.calories > 0 && r.calories <= maxCalories);
+  }
+  if (minProtein) {
+    pool = pool.filter(r => r.proteinG > 0 && r.proteinG >= minProtein);
+  }
+  if (minFiber) {
+    pool = pool.filter(r => r.fiberG > 0 && r.fiberG >= minFiber);
   }
   document.getElementById('prefs-count').innerHTML = '<strong>'+pool.length.toLocaleString()+'</strong> of '+RECIPES.length.toLocaleString()+' recipes will appear';
 }
@@ -728,6 +772,8 @@ function buildCard(recipe, interactive) {
     + (recipe.cuisine ? '<span class="chip">'+esc(recipe.cuisine)+'</span>' : '')
     + (timeStr ? '<span class="chip time">⏱ '+esc(timeStr)+'</span>' : '')
     + (recipe.calories ? '<span class="chip">🔥 '+esc(recipe.calories)+' cal</span>' : '')
+    + (recipe.proteinG ? '<span class="chip">💪 '+esc(recipe.proteinG)+'g protein</span>' : '')
+    + (recipe.fiberG ? '<span class="chip">🌾 '+esc(recipe.fiberG)+'g fiber</span>' : '')
     + '</div>'
     + (safeLink ? '<a class="card-recipe-link" href="'+safeLink+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">📄 Recipe Card</a>' : '')
     + '</div>'
