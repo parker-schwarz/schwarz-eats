@@ -368,14 +368,14 @@ function shuffle(arr) {
   return arr;
 }
 let excludedGroups = new Set();
-let excludedDishTypes = new Set();
+let selectedDishTypes = new Set(); // inclusion: empty = all dishes; else show only these
 function loadPrefs() {
   try {
     const raw = localStorage.getItem('mealplanner_prefs');
     if (!raw) return;
     const prefs = JSON.parse(raw);
     excludedGroups = new Set(prefs.excludedGroups || []);
-    excludedDishTypes = new Set(prefs.excludedDishTypes || []);
+    selectedDishTypes = new Set(prefs.selectedDishTypes || []);
     hiddenIds    = new Set(prefs.hiddenIds || []);
     favoritedIds = new Set(prefs.favIds   || []);
     if (Array.isArray(prefs.recipients) && prefs.recipients.length) recipients = prefs.recipients;
@@ -383,7 +383,7 @@ function loadPrefs() {
     if (prefs.maxCalories) maxCalories = prefs.maxCalories;
     if (prefs.minProtein) minProtein = prefs.minProtein;
     if (prefs.minFiber) minFiber = prefs.minFiber;
-  } catch(e) { excludedGroups = new Set(); excludedDishTypes = new Set(); hiddenIds = new Set(); favoritedIds = new Set(); }
+  } catch(e) { excludedGroups = new Set(); selectedDishTypes = new Set(); hiddenIds = new Set(); favoritedIds = new Set(); }
 }
 let hiddenIds    = new Set();
 let favoritedIds = new Set();
@@ -392,7 +392,7 @@ let maxCalories = null;
 let minProtein = null;
 let minFiber = null;
 function savePrefs() {
-  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 7, excludedGroups: [...excludedGroups], excludedDishTypes: [...excludedDishTypes], hiddenIds: [...hiddenIds], favIds: [...favoritedIds], recipients, glutenFreeOnly, maxCalories, minProtein, minFiber, pickIds: picks.map(p => p.id), recipeServings }));
+  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 8, excludedGroups: [...excludedGroups], selectedDishTypes: [...selectedDishTypes], hiddenIds: [...hiddenIds], favIds: [...favoritedIds], recipients, glutenFreeOnly, maxCalories, minProtein, minFiber, pickIds: picks.map(p => p.id), recipeServings }));
 }
 loadPrefs();
 let onboardingDone = false;
@@ -425,16 +425,21 @@ const PROTEIN_GROUPS = {
   other:   { label: 'Other', values: /^(Other|Turkey|Duck|Lamb)$/i },
 };
 
+// Match text is `name + ' ' + subtitle`. NOTE: every noun allows an optional
+// trailing `s` (`bowls?`, `tacos?`). HelloFresh names dishes in the plural
+// ("Baja Cod Tacos", "Steak & Grain Bowls"), and a bare `\btaco\b` will NOT
+// match "Tacos" because the trailing s kills the word boundary. Keep plurals
+// in sync if you add a noun here.
 const DISH_TYPE_GROUPS = {
-  bowl:    { label: 'Bowls',               values: /\bbowl\b/i },
-  salad:   { label: 'Salads',              values: /\bsalad\b/i },
-  soup:    { label: 'Soups & Stews',       values: /\b(soup|stew|chowder|bisque)\b/i },
-  pasta:   { label: 'Pasta & Noodles',     values: /\b(pasta|noodle|spaghetti|linguine|fettuccine|penne|rigatoni|cavatappi|tortelloni|ravioli)\b/i },
-  tacos:   { label: 'Tacos & Wraps',       values: /\b(taco|burrito|wrap|quesadilla|fajita)\b/i },
-  stirfry:   { label: 'Stir-Fry',              values: /\bstir.?fry\b/i },
-  onepot:    { label: 'One-Pot / Sheet Pan',   values: /\b(one.?pot|one.?pan|sheet.?pan)\b/i },
-  pizza:     { label: 'Pizza & Flatbread',     values: /\b(pizza|flatbread)\b/i },
-  sandwich:  { label: 'Sandwiches & Burgers',  values: /\b(sandwich|sandwiches|sando|burger|burgers|hoagie|sub|philly|panini)\b/i },
+  bowl:    { label: 'Bowls',               values: /\bbowls?\b/i },
+  salad:   { label: 'Salads',              values: /\bsalads?\b/i },
+  soup:    { label: 'Soups & Stews',       values: /\b(soups?|stews?|chowders?|bisques?)\b/i },
+  pasta:   { label: 'Pasta & Noodles',     values: /\b(pastas?|noodles?|spaghetti|linguine|fettuccine|penne|rigatoni|cavatappi|tortelloni|ravioli)\b/i },
+  tacos:   { label: 'Tacos & Wraps',       values: /\b(tacos?|burritos?|wraps?|quesadillas?|fajitas?)\b/i },
+  stirfry:   { label: 'Stir-Fry',              values: /\bstir.?fr(?:y|ies)\b/i },
+  onepot:    { label: 'One-Pot / Sheet Pan',   values: /\b(one.?pots?|one.?pans?|sheet.?pans?)\b/i },
+  pizza:     { label: 'Pizza & Flatbread',     values: /\b(pizzas?|flatbreads?)\b/i },
+  sandwich:  { label: 'Sandwiches & Burgers',  values: /\b(sandwich(?:es)?|sandos?|burgers?|hoagies?|subs?|philly|paninis?)\b/i },
 };
 
 function buildDeck() {
@@ -448,13 +453,13 @@ function buildDeck() {
       return true;
     });
   }
-  if (excludedDishTypes.size > 0) {
+  if (selectedDishTypes.size > 0) {
     pool = pool.filter(r => {
       const text = r.name + ' ' + (r.subtitle || '');
-      for (const key of excludedDishTypes) {
-        if (DISH_TYPE_GROUPS[key].values.test(text)) return false;
+      for (const key of selectedDishTypes) {
+        if (DISH_TYPE_GROUPS[key].values.test(text)) return true;
       }
-      return true;
+      return false;
     });
   }
   if (selectedCategories.size > 0) {
@@ -630,8 +635,9 @@ function renderPrefsScreen(tab) {
       return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="toggleProteinGroup(this,\''+key+'\')">'+group.label+'</button>';
     }).join('');
   } else if (tab === 'dish') {
-    container.innerHTML = Object.entries(DISH_TYPE_GROUPS).map(([key, group]) => {
-      const on = !excludedDishTypes.has(key);
+    const hint = '<div class="prefs-subtitle" style="width:100%;font-size:13px;margin-bottom:2px">Tap the dish types you want. Leave all off to see everything.</div>';
+    container.innerHTML = hint + Object.entries(DISH_TYPE_GROUPS).map(([key, group]) => {
+      const on = selectedDishTypes.has(key);
       return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="toggleDishType(this,\''+key+'\')">'+group.label+'</button>';
     }).join('');
   } else {
@@ -676,12 +682,12 @@ function toggleProteinGroup(btn, key) {
 }
 
 function toggleDishType(btn, key) {
-  if (excludedDishTypes.has(key)) {
-    excludedDishTypes.delete(key);
-    btn.className = 'pref-toggle active';
-  } else {
-    excludedDishTypes.add(key);
+  if (selectedDishTypes.has(key)) {
+    selectedDishTypes.delete(key);
     btn.className = 'pref-toggle excluded';
+  } else {
+    selectedDishTypes.add(key);
+    btn.className = 'pref-toggle active';
   }
   btn.textContent = DISH_TYPE_GROUPS[key].label;
   savePrefs();
@@ -699,13 +705,13 @@ function updatePrefsCount() {
       return true;
     });
   }
-  if (excludedDishTypes.size > 0) {
+  if (selectedDishTypes.size > 0) {
     pool = pool.filter(r => {
       const text = r.name + ' ' + (r.subtitle || '');
-      for (const key of excludedDishTypes) {
-        if (DISH_TYPE_GROUPS[key].values.test(text)) return false;
+      for (const key of selectedDishTypes) {
+        if (DISH_TYPE_GROUPS[key].values.test(text)) return true;
       }
-      return true;
+      return false;
     });
   }
   if (glutenFreeOnly) {
