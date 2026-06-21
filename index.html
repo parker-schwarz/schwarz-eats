@@ -332,7 +332,6 @@
 <script>
 const DEFAULT_PIN_HASH = "43c060b3a59032e0e8e3aa68cb60211a26523ed118263b8814d5bf70e68fb5d1";
 const N8N_WEBHOOK = "https://parkerschwarz.app.n8n.cloud/webhook/schwarz-eats-meal-plan";
-const WEBHOOK_SECRET = "7fb426d572950b8d8f84534b1ad27e8e197042d436ffbe59ef89754830bbd26d";
 let recipients = [];
 
 function esc(s) {
@@ -1024,7 +1023,6 @@ function renderShop() {
         const qtyText = item.hasQty
           ? ' <span style="color:var(--text2);font-size:12px">'+fmtAmt(item.amount)+(item.unit?' '+item.unit:'')+'</span>'
           : (item.count>1?' <span style="color:var(--text2);font-size:12px">(x'+item.count+')</span>':'');
-        const recipeText = item.recipes.join('<br>');
         return '<div class="shop-item'+(on?' checked':'')+'" data-key="'+esc(k)+'" onclick="toggleItemByEl(this)">'
           + '<div class="shop-check'+(on?' on':'')+'"></div>'
           + '<div class="shop-item-text">'+esc(item.label)+qtyText
@@ -1056,10 +1054,11 @@ function renderRecipients() {
       ).join('')
     : '<div style="font-size:13px;color:var(--text2);padding:6px 0">No recipients — add one below.</div>';
 }
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function addRecipient() {
   const input = document.getElementById('recipient-input');
   const val = (input.value || '').trim().toLowerCase();
-  if (!val || !val.includes('@')) { showToast('Enter a valid email'); return; }
+  if (!val || !EMAIL_RE.test(val)) { showToast('Enter a valid email'); return; }
   if (recipients.includes(val)) { showToast('Already added'); input.value = ''; return; }
   recipients.push(val);
   savePrefs();
@@ -1075,6 +1074,8 @@ function removeRecipient(i) {
 
 async function sendEmail() {
   const btn = document.getElementById('send-btn'), status = document.getElementById('send-status');
+  if (!picks.length) { status.textContent = '⚠️ Add some meals before sending.'; return; }
+  if (!recipients.length) { status.textContent = '⚠️ Add at least one recipient.'; return; }
   btn.disabled = true; status.textContent = 'Sending…';
   const items = buildShoppingList();
   const needed = items.filter(i => checkedItems.has(i.key));
@@ -1126,7 +1127,7 @@ function setupAddEmail() {
   const input = document.getElementById('setup-email-input');
   const val = (input.value || '').trim().toLowerCase();
   const errEl = document.getElementById('setup-email-error');
-  if (!val || !val.includes('@')) { errEl.textContent = 'Enter a valid email'; return; }
+  if (!val || !EMAIL_RE.test(val)) { errEl.textContent = 'Enter a valid email'; return; }
   if (setupEmails.includes(val)) { errEl.textContent = 'Already added'; input.value = ''; return; }
   errEl.textContent = '';
   setupEmails.push(val);
