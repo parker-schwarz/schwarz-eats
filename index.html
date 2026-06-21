@@ -1093,7 +1093,8 @@ async function sendEmail() {
     btn.disabled = false; showToast('Configure n8n webhook first'); return;
   }
   try {
-    await fetch(N8N_WEBHOOK, {method:'POST', headers:{'Content-Type':'application/json','X-Webhook-Secret':WEBHOOK_SECRET}, body:JSON.stringify(payload)});
+    const res = await fetch(N8N_WEBHOOK, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    if (!res.ok) throw new Error('HTTP '+res.status);
     status.textContent = '✅ Sent! Check your inboxes.'; showToast('✅ Emails sent!'); btn.disabled = false;
   } catch(e) { status.textContent = '❌ Error sending. Try again.'; btn.disabled = false; }
 }
