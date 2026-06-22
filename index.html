@@ -328,10 +328,14 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="recipes.js"></script>
 <script>
 const DEFAULT_PIN_HASH = "43c060b3a59032e0e8e3aa68cb60211a26523ed118263b8814d5bf70e68fb5d1";
-const N8N_WEBHOOK = "https://parkerschwarz.app.n8n.cloud/webhook/schwarz-eats-meal-plan";
+const EMAILJS_PUBLIC_KEY  = 'YOUR_PUBLIC_KEY';
+const EMAILJS_SERVICE_ID  = 'YOUR_SERVICE_ID';
+const EMAILJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID';
+emailjs.init(EMAILJS_PUBLIC_KEY);
 let recipients = [];
 
 function esc(s) {
@@ -1081,21 +1085,19 @@ async function sendEmail() {
   const needed = items.filter(i => checkedItems.has(i.key));
   const fmtItem = i => '• '+i.label+(i.hasQty?' — '+fmtAmt(i.amount)+(i.unit?' '+i.unit:''):(i.count>1?' (x'+i.count+')':''));
   const fmtMeal = (r,i) => (i+1)+'. '+(r.cardLink ? '<a href="'+r.cardLink+'">'+r.name+'</a>' : r.name);
-  const payload = {
-    emails: recipients,
+  const nl = s => (s||'').replace(/\n/g,'<br>');
+  const haveRaw = items.filter(i=>!checkedItems.has(i.key)).map(i=>'• '+i.label).join('\n');
+  const templateParams = {
     subject: '🍽 Meal Plan for the Week ('+picks.length+' meals)',
-    meals: picks.map(fmtMeal).join('\n'),
-    shopping_list: needed.map(fmtItem).join('\n'),
-    have_list: items.filter(i=>!checkedItems.has(i.key)).map(i=>'• '+i.label).join('\n'),
+    meals: nl(picks.map(fmtMeal).join('\n')),
+    shopping_list: nl(needed.map(fmtItem).join('\n')),
+    have_section: haveRaw ? '<h2 style="font-size:16px;border-bottom:2px solid #d0dbc8;padding-bottom:8px;margin-bottom:12px">✅ Already Have</h2><p style="line-height:2;font-size:14px;color:#6a7464;font-family:monospace;margin:0 0 28px">'+nl(haveRaw)+'</p>' : '',
     meal_count: picks.length, item_count: needed.length
   };
-  if (N8N_WEBHOOK === 'UPDATE_N8N_WEBHOOK_URL_HERE') {
-    status.textContent = '⚠️ Add your n8n webhook URL in the config';
-    btn.disabled = false; showToast('Configure n8n webhook first'); return;
-  }
   try {
-    const res = await fetch(N8N_WEBHOOK, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
-    if (!res.ok) throw new Error('HTTP '+res.status);
+    await Promise.all(recipients.map(to_email =>
+      emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { ...templateParams, to_email })
+    ));
     status.textContent = '✅ Sent! Check your inboxes.'; showToast('✅ Emails sent!'); btn.disabled = false;
   } catch(e) { status.textContent = '❌ Error sending. Try again.'; btn.disabled = false; }
 }
