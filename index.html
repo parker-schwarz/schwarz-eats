@@ -1084,14 +1084,13 @@ async function sendEmail() {
   const items = buildShoppingList();
   const needed = items.filter(i => checkedItems.has(i.key));
   const fmtItem = i => '• '+i.label+(i.hasQty?' — '+fmtAmt(i.amount)+(i.unit?' '+i.unit:''):(i.count>1?' (x'+i.count+')':''));
-  const fmtMeal = (r,i) => (i+1)+'. '+(r.cardLink ? '<a href="'+r.cardLink+'">'+r.name+'</a>' : r.name);
-  const nl = s => (s||'').replace(/\n/g,'<br>');
+  const fmtMeal = (r,i) => (i+1)+'. '+r.name+(r.cardLink ? '\n   '+r.cardLink : '');
   const haveRaw = items.filter(i=>!checkedItems.has(i.key)).map(i=>'• '+i.label).join('\n');
   const templateParams = {
     subject: '🍽 Meal Plan for the Week ('+picks.length+' meals)',
-    meals: nl(picks.map(fmtMeal).join('\n')),
-    shopping_list: nl(needed.map(fmtItem).join('\n')),
-    have_section: haveRaw ? '<h2 style="font-size:16px;border-bottom:2px solid #d0dbc8;padding-bottom:8px;margin-bottom:12px">✅ Already Have</h2><p style="line-height:2;font-size:14px;color:#6a7464;font-family:monospace;margin:0 0 28px">'+nl(haveRaw)+'</p>' : '',
+    meals: picks.map(fmtMeal).join('\n'),
+    shopping_list: needed.map(fmtItem).join('\n'),
+    have_list: haveRaw,
     meal_count: picks.length, item_count: needed.length
   };
   try {
