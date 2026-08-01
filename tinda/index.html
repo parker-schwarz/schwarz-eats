@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<!-- App renders at 1.25x on all phones (matches an iOS "Zoomed" display). Keep
+     each device's OS display-zoom on Standard; the app provides the magnification.
+     To retune the size, change all three 1.25 values together. -->
+<meta name="viewport" content="initial-scale=1.25, minimum-scale=1.25, maximum-scale=1.25, user-scalable=no" />
+<meta name="color-scheme" content="light" />
+<title>Tinda Fa Dinna — Meal Planner</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>">
+<style>
+  :root {
+    --bg: #e0e8db;
+    --surface: #fafaf5;
+    --surface2: #cfdbc9;
+    --accent: #4a7a56;
+    --accent2: #c49030;
+    --green: #4a7a56;
+    --red: #c04040;
+    --text: #1a1e16;
+    --text2: #6a7464;
+    --radius: 18px;
+    --card-w: min(88vw, 360px);
+    --card-h: min(calc(100dvh - 162px), 620px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; color-scheme: light; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100dvh; overflow: hidden; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 20px; transition: opacity .3s, transform .3s; }
+  .screen.hidden { opacity: 0; pointer-events: none; transform: translateY(20px); }
+  #pin-screen { background: var(--bg); gap: 32px; }
+  .logo { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .subtitle { color: var(--text2); font-size: 14px; text-align: center; }
+  .pin-display { display: flex; gap: 14px; }
+  .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--text2); transition: background .2s, border-color .2s; }
+  .pin-dot.filled { background: var(--accent); border-color: var(--accent); }
+  .pin-keypad { display: grid; grid-template-columns: repeat(3, 72px); gap: 12px; }
+  .pin-key { height: 72px; border-radius: 50%; background: var(--surface2); border: none; color: var(--text); font-size: 22px; font-weight: 600; cursor: pointer; transition: background .15s, transform .1s; }
+  .pin-key:active { background: var(--accent); transform: scale(.92); }
+  .pin-key.del { font-size: 18px; }
+  .pin-error { color: var(--red); font-size: 13px; height: 18px; }
+  #swipe-screen { background: var(--bg); padding: 0; display: block; align-items: stretch; justify-content: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .swipe-top { position: sticky; top: 0; z-index: 20; background: var(--bg); padding-top: env(safe-area-inset-top, 0px); box-shadow: 0 6px 10px -8px rgba(0,0,0,.35); }
+  .swipe-header { padding: 14px 20px 8px; display: flex; justify-content: space-between; align-items: center; }
+  .swipe-header .logo-sm { font-size: 18px; font-weight: 800; }
+  .swipe-header .logo-sm span { color: var(--accent); }
+  .picks-badge { background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px; cursor: pointer; }
+  .card-stack { position: relative; width: var(--card-w); height: var(--card-h); margin: 14px auto 0; }
+  .recipe-card { position: absolute; inset: 0; display: flex; flex-direction: column; border-radius: var(--radius); overflow: hidden; background: var(--surface); box-shadow: 0 8px 32px rgba(0,0,0,.5); cursor: grab; user-select: none; touch-action: pan-y; }
+  .recipe-card.is-top { position: relative; inset: auto; height: 100%; }
+  .recipe-card.dragging { cursor: grabbing; box-shadow: 0 16px 48px rgba(0,0,0,.7); }
+  .recipe-card.fly-left  { animation: flyLeft .35s ease-in forwards; }
+  .recipe-card.fly-right { animation: flyRight .35s ease-in forwards; }
+  @keyframes flyLeft  { to { transform: translateX(-150vw) rotate(-25deg); opacity: 0; } }
+  @keyframes flyRight { to { transform: translateX(150vw)  rotate( 25deg); opacity: 0; } }
+  /* Locally generated dish artwork — see dishArt(). */
+  .dish-art { width: 100%; flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  .dish-art::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.28), transparent 60%); }
+  .dish-art > span { position: relative; z-index: 1; line-height: 1; filter: drop-shadow(0 3px 10px rgba(0,0,0,.35)); }
+  .card-body { position: static; flex: 0 0 auto; padding: 14px 16px 16px; display: flex; flex-direction: column; }
+  .card-text-block { flex: 0 0 auto; }
+  .card-name { font-size: 17px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-sub  { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; flex-shrink: 0; }
+  .chip { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; background: var(--surface2); color: var(--text2); }
+  .chip.protein { background: rgba(232,112,64,.18); color: var(--accent); }
+  .chip.time    { background: rgba(245,166,35,.15); color: var(--accent2); }
+  .chip.chip-pdf { background: rgba(100,180,255,.15); color: #4a7a56; text-decoration: none; cursor: pointer; font-size: 13px; padding: 5px 12px; }
+  .card-recipe-link { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; padding: 10px 16px; border-radius: 10px; background: rgba(100,180,255,.15); color: #4a7a56; text-decoration: none; font-size: 15px; font-weight: 700; letter-spacing: 0.2px; flex-shrink: 0; }
+  .stamp { position: absolute; top: 24px; padding: 6px 14px; border-radius: 8px; font-size: 22px; font-weight: 900; letter-spacing: 2px; border: 3px solid; opacity: 0; pointer-events: none; }
+  .stamp-yes { left: 16px; color: var(--green); border-color: var(--green); transform: rotate(-15deg); }
+  .stamp-no  { right: 16px; color: var(--red);   border-color: var(--red);   transform: rotate(15deg); }
+  .swipe-actions { display: flex; gap: 12px; justify-content: center; padding: 18px 0 6px; }
+  .action-btn { width: 56px; height: 56px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; transition: transform .15s; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+  .action-btn:active { transform: scale(.88); }
+  .btn-skip  { background: var(--surface2); }
+  .btn-pick  { background: var(--surface2); }
+  .btn-undo  { background: var(--surface2); color: var(--text2); font-size: 20px; }
+  .btn-never { background: var(--surface2); font-size: 20px; }
+  .ob-card { display: flex; flex-direction: column; flex: 1 1 auto; justify-content: center; background: var(--surface); }
+  .ob-header { padding: 24px 20px 14px; text-align: center; border-bottom: 1px solid rgba(0,0,0,.07); }
+  .ob-tagline { font-size: 13px; color: var(--text2); margin-top: 6px; }
+  .ob-body { display: flex; flex-direction: column; padding: 16px 20px 20px; gap: 14px; }
+  .ob-swipe-row { display: flex; background: var(--surface2); border-radius: 10px; overflow: hidden; }
+  .ob-swipe-hint { flex: 1; text-align: center; font-size: 13px; font-weight: 600; color: var(--text2); padding: 11px 10px; line-height: 1.35; }
+  .ob-swipe-hint + .ob-swipe-hint { border-left: 1px solid rgba(0,0,0,.10); }
+  .ob-btn-list { display: flex; flex-direction: column; gap: 9px; }
+  .ob-btn-row { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .ob-icon { font-size: 20px; width: 30px; text-align: center; flex-shrink: 0; }
+  .ob-label { color: var(--text2); line-height: 1.3; }
+  .ob-label strong { color: var(--text); }
+  .ob-cta { text-align: center; font-size: 14px; font-weight: 700; color: var(--accent); margin-top: 2px; }
+  .reset-link { background: none; border: none; color: var(--text2); font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px 0; margin-top: 4px; }
+  .btn-fave  { background: var(--surface2); color: var(--accent2); font-size: 20px; }
+  .btn-fave.active { background: rgba(245,166,35,.2); }
+  .fav-chip.active { background: var(--accent2); color: #1a1a1a; }
+  .swipe-progress { font-size: 12px; color: var(--text2); text-align: center; padding-bottom: max(20px, env(safe-area-inset-bottom, 20px)); }
+  .empty-deck { text-align: center; color: var(--text2); font-size: 15px; padding: 40px 20px; }
+  .empty-deck .big { font-size: 48px; margin-bottom: 12px; }
+  .view-picks-btn { margin-top: 20px; background: var(--accent); color: #fff; border: none; padding: 14px 36px; border-radius: 50px; font-size: 16px; font-weight: 700; cursor: pointer; }
+  #picks-screen { background: var(--bg); justify-content: flex-start; padding-top: 60px; overflow: hidden; }
+  .screen-header { width: 100%; display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .back-btn { background: var(--surface2); border: none; color: var(--text); font-size: 20px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .screen-title { font-size: 20px; font-weight: 800; }
+  .picks-list { width: 100%; overflow-y: auto; flex: 1; padding-bottom: 100px; }
+  .pick-item { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; background: var(--surface); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .pick-thumb { width: 88px; height: 88px; border-radius: 10px; object-fit: cover; background: var(--surface2); flex-shrink: 0; }
+  .pick-thumb.dish-art { flex: 0 0 auto; min-height: 0; }
+  .pick-info { flex: 1; min-width: 0; }
+  .pick-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pick-meta { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .pick-remove { background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; padding: 4px; flex-shrink: 0; }
+  .picks-footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 16px 20px 28px; background: linear-gradient(transparent, var(--bg) 40%); display: flex; gap: 10px; }
+  .btn-primary { flex: 1; background: var(--accent); color: #fff; border: none; padding: 15px; border-radius: 50px; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .btn-secondary { flex: 1; background: var(--surface2); color: var(--text); border: none; padding: 15px; border-radius: 50px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .empty-picks { text-align: center; color: var(--text2); margin-top: 60px; font-size: 15px; }
+  #shop-screen { background: var(--bg); justify-content: flex-start; padding-top: 60px; overflow: hidden; }
+  .shop-list { width: 100%; overflow-y: auto; flex: 1; padding-bottom: 120px; }
+  .shop-group { margin-bottom: 20px; }
+  .shop-group-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); margin-bottom: 8px; padding: 0 4px; }
+  .shop-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; background: var(--surface); margin-bottom: 6px; cursor: pointer; }
+  .shop-item.checked .shop-item-text { text-decoration: none; color: var(--text); }
+  .shop-check { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--text2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: background .15s, border-color .15s; }
+  .shop-check.on { background: var(--green); border-color: var(--green); }
+  .shop-check.on::after { content: '✓'; color: #fff; font-size: 13px; font-weight: 700; }
+  .shop-item-text { font-size: 15px; text-decoration: line-through; color: var(--text2); }
+  .shop-item-recipes { font-size: 11px; color: var(--text2); margin-top: 2px; line-height: 1.5; opacity: 0.7; }
+  .shop-footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 16px 20px 28px; background: linear-gradient(transparent, var(--bg) 40%); }
+  .shop-summary { font-size: 12px; color: var(--text2); text-align: center; margin-bottom: 10px; }
+  #send-screen { background: var(--bg); gap: 20px; }
+  .send-icon { font-size: 56px; }
+  .send-title { font-size: 22px; font-weight: 800; }
+  .send-sub { font-size: 14px; color: var(--text2); text-align: center; max-width: 280px; line-height: 1.5; }
+  .send-emails { background: var(--surface); border-radius: 12px; padding: 14px 16px; width: 100%; max-width: 340px; }
+  .email-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 6px 0; color: var(--text2); border-bottom: 1px solid rgba(255,255,255,.06); }
+  .email-row:last-child { border-bottom: none; }
+  .email-row span { color: var(--text); font-weight: 500; flex: 1; }
+  .email-row-remove { background: none; border: none; color: var(--text2); font-size: 16px; cursor: pointer; padding: 2px 6px; line-height: 1; }
+  .email-row-remove:hover { color: var(--red); }
+  .add-recipient-row { display: flex; gap: 8px; width: 100%; max-width: 340px; margin-top: 4px; }
+  .recipient-input { flex: 1; background: var(--surface); border: 1.5px solid rgba(255,255,255,.1); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--text); outline: none; }
+  .recipient-input:focus { border-color: var(--accent); }
+  .recipient-add-btn { background: var(--surface2); color: var(--text); border: none; border-radius: 10px; padding: 10px 14px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .btn-send { background: var(--accent); color: #fff; border: none; padding: 16px 48px; border-radius: 50px; font-size: 17px; font-weight: 700; cursor: pointer; width: 100%; max-width: 340px; }
+  .btn-send:disabled { opacity: .5; cursor: default; }
+  .send-status { font-size: 14px; color: var(--text2); text-align: center; height: 20px; }
+  .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface2); color: var(--text); padding: 10px 20px; border-radius: 30px; font-size: 14px; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; z-index: 999; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .category-filter { display: flex; gap: 8px; padding: 4px 16px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .category-filter::-webkit-scrollbar { display: none; }
+  .cat-chip { flex-shrink: 0; padding: 6px 14px; border-radius: 20px; border: none; background: var(--surface2); color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+  .cat-chip.active { background: var(--accent); color: #fff; }
+  #prefs-screen { background: var(--bg); gap: 0; justify-content: flex-start; padding-top: 48px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .prefs-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; max-width: 380px; padding: 0 20px; padding-bottom: max(48px, env(safe-area-inset-bottom, 48px)); }
+  .prefs-subtitle { font-size: 15px; color: var(--text2); text-align: center; line-height: 1.5; }
+  .prefs-section-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text2); align-self: flex-start; }
+  .protein-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .pref-toggle { padding: 10px 18px; border-radius: 50px; border: 2px solid var(--surface2); background: var(--surface); color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; transition: border-color .15s, background-color .15s, color .15s; }
+  .pref-toggle.active { border-color: var(--accent); background: rgba(232,112,64,.15); color: var(--accent); }
+  .pref-toggle.excluded { border-color: var(--surface2); background: transparent; color: var(--text2); }
+  .prefs-count { font-size: 13px; color: var(--text2); text-align: center; }
+  .prefs-count strong { color: var(--text); font-size: 15px; }
+  .gear-btn { background: none; border: none; color: var(--text2); cursor: pointer; padding: 4px 8px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+  .gear-btn svg { display: block; width: 22px; height: 22px; }
+  .servings-stepper { display: flex; align-items: center; gap: 8px; width: 100%; }
+  .stepper-btn { width: 24px; height: 24px; border-radius: 50%; border: none; background: var(--surface2); color: var(--text); font-size: 16px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .stepper-btn:active { background: var(--accent); }
+  .stepper-label { font-size: 12px; color: var(--text2); min-width: 48px; text-align: center; }
+  .prefs-tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 12px; padding: 4px; width: 100%; }
+  .prefs-tab { flex: 1; padding: 8px; border-radius: 9px; border: none; background: none; color: var(--text2); font-size: 14px; font-weight: 600; cursor: pointer; transition: all .15s; }
+  .prefs-tab.active { background: var(--surface); color: var(--text); }
+  .time-filter { display: flex; gap: 8px; padding: 0 16px 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .time-filter::-webkit-scrollbar { display: none; }
+  .time-chip { flex-shrink: 0; padding: 5px 12px; border-radius: 20px; border: none; background: var(--surface2); color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+  .time-chip.active { background: var(--accent2); color: #000; }
+  .fav-badge { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; background: rgba(0,0,0,.55); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; z-index: 2; pointer-events: none; }
+  .fav-star { position: absolute; top: 10px; right: 10px; width: 38px; height: 38px; background: rgba(0,0,0,.45); border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; line-height: 1; color: #d2d2cc; cursor: pointer; z-index: 3; padding: 0; transition: color .15s, transform .1s; }
+  .fav-star.active { color: var(--accent2); }
+  .fav-star:active { transform: scale(.85); }
+  .card-trash { position: absolute; top: 10px; left: 10px; width: 38px; height: 38px; background: rgba(0,0,0,.45); border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1; cursor: pointer; z-index: 3; padding: 0; filter: grayscale(1) opacity(.85); transition: transform .1s, filter .15s; }
+  .card-trash:active { transform: scale(.85); filter: none; }
+  .pick-fav { background: none; border: none; color: #c2c8bb; font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 6px; transition: color .15s, transform .1s; }
+  .pick-fav.active { color: var(--accent2); }
+  .pick-fav:active { transform: scale(.85); }
+  .clear-all-btn { margin-left: auto; background: none; border: none; color: var(--red); font-size: 13px; font-weight: 600; cursor: pointer; padding: 8px 4px; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div id="pin-screen" class="screen">
+  <div class="logo">Tinda Fa <span>Dinna</span></div>
+  <div class="subtitle">Enter your PIN to start planning</div>
+  <div class="pin-display" id="pin-display">
+    <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="pin-keypad">
+    <button class="pin-key" data-k="1">1</button><button class="pin-key" data-k="2">2</button><button class="pin-key" data-k="3">3</button>
+    <button class="pin-key" data-k="4">4</button><button class="pin-key" data-k="5">5</button><button class="pin-key" data-k="6">6</button>
+    <button class="pin-key" data-k="7">7</button><button class="pin-key" data-k="8">8</button><button class="pin-key" data-k="9">9</button>
+    <button class="pin-key" data-k=""></button><button class="pin-key" data-k="0">0</button><button class="pin-key del" data-k="del">⌫</button>
+  </div>
+  <div class="pin-error" id="pin-error"></div>
+  <button class="reset-link" onclick="forgotPin()">Forgot PIN?</button>
+</div>
+
+<div id="prefs-screen" class="screen hidden">
+  <div class="prefs-inner">
+    <div class="logo">Tinda Fa <span>Dinna</span></div>
+    <div class="prefs-subtitle">Choose what to include.<br>Toggle off anything you never want to see.</div>
+    <div class="prefs-tabs">
+      <button class="prefs-tab active" id="tab-proteins" onclick="renderPrefsScreen('proteins')">Proteins</button>
+      <button class="prefs-tab" id="tab-dish" onclick="renderPrefsScreen('dish')">Dishes</button>
+      <button class="prefs-tab" id="tab-dietary" onclick="renderPrefsScreen('dietary')">Dietary</button>
+    </div>
+    <div id="pref-toggles-container" class="protein-grid"></div>
+    <div id="prefs-count" class="prefs-count"></div>
+    <button class="big-btn btn-primary" style="width:100%;padding:15px;border-radius:50px;font-size:16px;font-weight:700;border:none;cursor:pointer;background:var(--accent);color:#fff;" onclick="applyPrefsAndSwipe()">Start Swiping &#8594;</button>
+    <button class="reset-link" onclick="resetHiddenRecipes()">Restore all hidden recipes</button>
+    <button class="reset-link" onclick="showChangePin()">Change PIN</button>
+  </div>
+</div>
+
+<div id="swipe-screen" class="screen hidden">
+  <div class="swipe-top">
+  <div class="swipe-header">
+    <div class="logo-sm">Tinda Fa <span>Dinna</span></div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button class="gear-btn" onclick="showPrefs()" title="Edit preferences" aria-label="Edit preferences"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+      <div class="picks-badge" id="picks-badge" onclick="showPicks()">0 picked</div>
+    </div>
+  </div>
+  <div class="category-filter" id="category-filter">
+    <button class="cat-chip active" data-cat="all" onclick="selectCategory(this)">All</button>
+    <button class="cat-chip" data-cat="american" onclick="selectCategory(this)">🍔 American</button>
+    <button class="cat-chip" data-cat="asian" onclick="selectCategory(this)">🍜 Asian</button>
+    <button class="cat-chip" data-cat="mexican" onclick="selectCategory(this)">🌮 Mexican</button>
+    <button class="cat-chip" data-cat="italian" onclick="selectCategory(this)">🍝 European</button>
+    <button class="cat-chip" data-cat="mediterranean" onclick="selectCategory(this)">🥙 Mediterranean</button>
+    <button class="cat-chip fav-chip" onclick="toggleFavoritesOnly(this)">⭐ Favs</button>
+  </div>
+  <div class="time-filter" id="time-filter">
+    <button class="time-chip active" data-t="0" onclick="selectTime(this)">All times</button>
+    <button class="time-chip" data-t="30" onclick="selectTime(this)">&#9889; &#8804;30 min</button>
+    <button class="time-chip" data-t="45" onclick="selectTime(this)">&#8987; &#8804;45 min</button>
+  </div>
+  </div>
+  <div class="card-stack" id="card-stack"></div>
+  <div class="swipe-actions">
+    <button class="action-btn btn-never" onclick="neverRecipe()">🗑️</button>
+    <button class="action-btn btn-undo"  onclick="undoSwipe()">↩</button>
+    <button class="action-btn btn-skip"  onclick="swipeCard('left')">👎</button>
+    <button class="action-btn btn-pick"  onclick="swipeCard('right')">👍</button>
+    <button class="action-btn btn-fave"  id="btn-fave" onclick="faveRecipe()">⭐</button>
+  </div>
+  <div class="swipe-progress" id="swipe-progress"></div>
+</div>
+
+<div id="picks-screen" class="screen hidden">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showSwipe()">←</button>
+    <div class="screen-title">This Week's Menu</div>
+    <button class="clear-all-btn" onclick="clearAllPicks()">Clear all</button>
+  </div>
+  <div class="picks-list" id="picks-list"></div>
+  <div class="picks-footer">
+    <button class="btn-secondary" onclick="showSwipe()">Keep swiping</button>
+    <button class="btn-primary" onclick="showShop()">Shopping list →</button>
+  </div>
+</div>
+
+<div id="shop-screen" class="screen hidden">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showPicks()">←</button>
+    <div class="screen-title">Shopping List</div>
+  </div>
+  <div class="shop-list" id="shop-list"></div>
+  <div class="shop-footer">
+    <div class="shop-summary" id="shop-summary"></div>
+    <button class="btn-primary" onclick="showSend()">Send to email →</button>
+  </div>
+</div>
+
+<div id="send-screen" class="screen hidden">
+  <div class="send-icon">✉️</div>
+  <div class="send-title">Ready to send!</div>
+  <div class="send-sub">We'll send the meal plan to everyone below.</div>
+  <div class="send-emails" id="recipient-list"></div>
+  <div class="add-recipient-row">
+    <input type="email" id="recipient-input" class="recipient-input" placeholder="Add email address…" onkeydown="if(event.key==='Enter') addRecipient()">
+    <button class="recipient-add-btn" onclick="addRecipient()">+ Add</button>
+  </div>
+  <button class="btn-send" id="send-btn" onclick="sendEmail()">Send now</button>
+  <div class="send-status" id="send-status"></div>
+  <button class="btn-secondary" style="max-width:340px;width:100%;margin-top:8px" onclick="showShop()">← Back to list</button>
+</div>
+
+<div id="setup-screen" class="screen hidden">
+  <div class="prefs-inner">
+    <div class="logo">Tinda Fa <span>Dinna</span></div>
+    <div class="prefs-subtitle">Add the email addresses for your meal plan delivery.</div>
+    <div id="setup-email-list" style="width:100%;background:var(--surface);border-radius:12px;padding:4px 0;min-height:40px;"></div>
+    <div class="add-recipient-row">
+      <input type="email" id="setup-email-input" class="recipient-input" placeholder="Add email address…" onkeydown="if(event.key==='Enter') setupAddEmail()">
+      <button class="recipient-add-btn" onclick="setupAddEmail()">+ Add</button>
+    </div>
+    <div id="setup-email-error" style="color:var(--red);font-size:13px;height:18px;"></div>
+    <button class="big-btn btn-primary" style="width:100%;padding:15px;border-radius:50px;font-size:16px;font-weight:700;border:none;cursor:pointer;background:var(--accent);color:#fff;" onclick="setupFinish()">Continue →</button>
+  </div>
+</div>
+
+<div id="change-pin-screen" class="screen hidden">
+  <div class="prefs-inner">
+    <div class="logo">Tinda Fa <span>Dinna</span></div>
+    <div class="prefs-subtitle" id="change-pin-subtitle">Enter your new 4-digit PIN</div>
+    <div class="pin-display" id="change-pin-display">
+      <div class="pin-dot" id="cpd0"></div><div class="pin-dot" id="cpd1"></div>
+      <div class="pin-dot" id="cpd2"></div><div class="pin-dot" id="cpd3"></div>
+    </div>
+    <div class="pin-keypad">
+      <button class="pin-key" onclick="handleChangePin('1')">1</button><button class="pin-key" onclick="handleChangePin('2')">2</button><button class="pin-key" onclick="handleChangePin('3')">3</button>
+      <button class="pin-key" onclick="handleChangePin('4')">4</button><button class="pin-key" onclick="handleChangePin('5')">5</button><button class="pin-key" onclick="handleChangePin('6')">6</button>
+      <button class="pin-key" onclick="handleChangePin('7')">7</button><button class="pin-key" onclick="handleChangePin('8')">8</button><button class="pin-key" onclick="handleChangePin('9')">9</button>
+      <button class="pin-key" onclick="handleChangePin('')"></button><button class="pin-key" onclick="handleChangePin('0')">0</button><button class="pin-key del" onclick="handleChangePin('del')">⌫</button>
+    </div>
+    <div class="pin-error" id="change-pin-error"></div>
+    <button class="reset-link" style="margin-top:12px" onclick="showPrefs()">Cancel</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="recipes.js"></script>
+<script>
+const DEFAULT_PIN_HASH = "43c060b3a59032e0e8e3aa68cb60211a26523ed118263b8814d5bf70e68fb5d1";
+const EMAILJS_PUBLIC_KEY  = 'giUcFhfjhOViDVe_x';
+const EMAILJS_SERVICE_ID  = 'service_zc6kglt';
+const EMAILJS_TEMPLATE_ID = 'template_81jruwm';
+// EmailJS is the only third-party script this app loads. Guard the init: an
+// unreachable or slow CDN would otherwise throw here at top level, abort the
+// rest of this script, and leave the app dead at the PIN screen. Sending
+// degrades on its own; everything else keeps working.
+const emailReady = typeof emailjs !== 'undefined';
+if (emailReady) emailjs.init(EMAILJS_PUBLIC_KEY);
+let recipients = [];
+
+function esc(s) {
+  if (s == null) return '';
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+// ---- Dish art ------------------------------------------------------------
+// Cards draw their own artwork instead of loading photos from anyone's CDN:
+// a gradient picked by cuisine, a glyph picked by dish, both derived from the
+// recipe itself so a given dish always looks the same. No network, no
+// third-party images, and nothing to break if a remote host disappears.
+
+const ART_GRADIENTS = [
+  ['#f2994a', '#eb5757'], ['#11998e', '#38ef7d'], ['#c94b4b', '#4b134f'],
+  ['#f7971e', '#ffd200'], ['#4b79a1', '#283e51'], ['#e65c00', '#f9d423'],
+  ['#8a2387', '#e94057'], ['#1d976c', '#93f9b9'], ['#ee0979', '#ff6a00'],
+  ['#4568dc', '#b06ab3'], ['#134e5e', '#71b280'], ['#cb356b', '#bd3f32'],
+];
+
+// Longest match wins, so "Sweet Potato" beats "Potato".
+const ART_GLYPHS = [
+  ['tacos', '🌮'], ['burritos', '🌯'], ['wraps', '🌯'], ['quesadillas', '🫓'],
+  ['enchiladas', '🌯'], ['nachos', '🧀'], ['pizza', '🍕'], ['flatbreads', '🫓'],
+  ['naan', '🫓'], ['pitas', '🥙'], ['gyros', '🥙'], ['banh mi', '🥖'],
+  ['subs', '🥖'], ['sandwiches', '🥪'], ['melts', '🥪'], ['sliders', '🍔'],
+  ['burgers', '🍔'], ['salad', '🥗'], ['soup', '🍲'], ['stew', '🍲'],
+  ['chili', '🌶️'], ['curry', '🍛'], ['ramen', '🍜'], ['lo mein', '🍜'],
+  ['pad thai', '🍜'], ['noodles', '🍜'], ['spaghetti', '🍝'], ['pasta', '🍝'],
+  ['penne', '🍝'], ['cavatappi', '🍝'], ['rigatoni', '🍝'], ['fettuccine', '🍝'],
+  ['linguine', '🍝'], ['ravioli', '🥟'], ['tortelloni', '🥟'], ['gnocchi', '🥟'],
+  ['dumplings', '🥟'], ['sushi', '🍣'], ['fried rice', '🍚'], ['rice bowls', '🍚'],
+  ['risotto', '🍚'], ['paella', '🥘'], ['meatballs', '🍖'], ['kebabs', '🍢'],
+  ['skewers', '🍢'], ['stir-fry', '🥘'], ['skillet', '🍳'], ['frittata', '🍳'],
+  ['hash', '🍳'], ['bake', '🧑‍🍳'], ['casserole', '🧑‍🍳'], ['pot pie', '🥧'],
+  ['chops', '🍖'], ['schnitzel', '🍖'], ["shepherd's pie", '🥧'],
+].map(([key, glyph]) => [new RegExp('\\b' + key + '\\b'), glyph, key.length]);
+
+const ART_PROTEIN_GLYPHS = {
+  Chicken: '🍗', Turkey: '🦃', Beef: '🥩', Pork: '🥓', Lamb: '🍖',
+  Shrimp: '🍤', Salmon: '🐟', Fish: '🐟', Tilapia: '🐟', Cod: '🐟',
+  Tuna: '🐟', Crab: '🦀', Lobster: '🦞', Scallop: '🐚', Duck: '🦆',
+  Tofu: '🌱', Veggie: '🥦', Vegan: '🌱',
+};
+
+// Small deterministic string hash, so art is stable across reloads.
+function artHash(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
+}
+
+// Whole-word match only: "Baked Salmon Plate" must not match the `bake` form
+// and lose its protein glyph.
+function dishGlyph(recipe) {
+  const n = (recipe.name || '').toLowerCase();
+  let best = '', bestLen = 0;
+  for (const [re, glyph, len] of ART_GLYPHS) {
+    if (len > bestLen && re.test(n)) { best = glyph; bestLen = len; }
+  }
+  return best || ART_PROTEIN_GLYPHS[recipe.protein] || '🍽️';
+}
+
+function dishArt(recipe, fontSize, extraStyle) {
+  const key = (recipe.cuisine || '') + '|' + (recipe.protein || '') + '|' + recipe.id;
+  const [a, b] = ART_GRADIENTS[artHash(key) % ART_GRADIENTS.length];
+  const angle = artHash(key + 'a') % 360;
+  const bg = 'linear-gradient(' + angle + 'deg,' + a + ',' + b + ')';
+  return '<div class="dish-art" style="background:' + bg + ';font-size:' + fontSize + 'px;'
+    + (extraStyle || '') + '"><span>' + dishGlyph(recipe) + '</span></div>';
+}
+
+async function hashPin(pin) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+let pinInput = '';
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+let excludedGroups = new Set();
+let selectedDishTypes = new Set(); // inclusion: empty = all dishes; else show only these
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem('mealplanner_prefs');
+    if (!raw) return;
+    const prefs = JSON.parse(raw);
+    excludedGroups = new Set(prefs.excludedGroups || []);
+    selectedDishTypes = new Set(prefs.selectedDishTypes || []);
+    hiddenIds    = new Set(prefs.hiddenIds || []);
+    favoritedIds = new Set(prefs.favIds   || []);
+    if (Array.isArray(prefs.recipients) && prefs.recipients.length) recipients = prefs.recipients;
+    if (prefs.glutenFreeOnly) glutenFreeOnly = true;
+    if (prefs.maxCalories) maxCalories = prefs.maxCalories;
+    if (prefs.minProtein) minProtein = prefs.minProtein;
+    if (prefs.minFiber) minFiber = prefs.minFiber;
+  } catch(e) { excludedGroups = new Set(); selectedDishTypes = new Set(); hiddenIds = new Set(); favoritedIds = new Set(); }
+}
+let hiddenIds    = new Set();
+let favoritedIds = new Set();
+let glutenFreeOnly = false;
+let maxCalories = null;
+let minProtein = null;
+let minFiber = null;
+function savePrefs() {
+  localStorage.setItem('mealplanner_prefs', JSON.stringify({ version: 8, excludedGroups: [...excludedGroups], selectedDishTypes: [...selectedDishTypes], hiddenIds: [...hiddenIds], favIds: [...favoritedIds], recipients, glutenFreeOnly, maxCalories, minProtein, minFiber, pickIds: picks.map(p => p.id), recipeServings }));
+}
+loadPrefs();
+let onboardingDone = false;
+let deck = [];
+let history = [];
+let picks = [];
+let recipeServings = {};
+let checkedItems = new Set();
+let currentCardEl = null;
+let deckIndex = 0;
+let selectedCategories = new Set(); // empty = All (no cuisine filter)
+let selectedMaxTime = null;
+let favoritesOnly = false;
+let shopInitialized = false;
+
+const CATEGORY_MAP = {
+  american:     /american|bbq|steakhouse|british|north.?ameri/i,
+  asian:        /asian|korean|japanese|vietnamese|chinese|indian|thai|south.?asia|east.?asia/i,
+  mexican:      /mexican|latin|peruvian|tex-mex|central.?ameri|caribbean|cuban/i,
+  italian:      /italian|southern.?europ|western.?europ|european|german|spanish|french|northern.?europ/i,
+  mediterranean:/mediterranean|middle.?east|greek|north.?afri|african|moroccan/i,
+};
+
+const PROTEIN_GROUPS = {
+  chicken: { label: 'Chicken',        values: /^Chicken$/i },
+  pork:    { label: 'Pork',           values: /^Pork$/i },
+  beef:    { label: 'Beef',           values: /^Beef$/i },
+  veggie:  { label: 'Veggie / Vegan', values: /^(Veggie|Vegan|Vegetarian|Plant-Based|Tofu)$/i },
+  fish:    { label: 'Fish & Seafood', values: /^(Salmon|Shrimp|Cod|Tilapia|Tuna|Fish|Crab|Scallop|Lobster)$/i },
+  other:   { label: 'Other', values: /^(Other|Turkey|Duck|Lamb)$/i },
+};
+
+// Match text is `name + ' ' + subtitle`. NOTE: every noun allows an optional
+// trailing `s` (`bowls?`, `tacos?`). Dish names are generated in the plural
+// ("Chipotle Cod Tacos", "Sesame Steak Bowls"), and a bare `\btaco\b` will NOT
+// match "Tacos" because the trailing s kills the word boundary. Keep plurals
+// in sync if you add a noun here.
+const DISH_TYPE_GROUPS = {
+  bowl:    { label: 'Bowls',               values: /\bbowls?\b/i },
+  salad:   { label: 'Salads',              values: /\bsalads?\b/i },
+  soup:    { label: 'Soups & Stews',       values: /\b(soups?|stews?|chowders?|bisques?)\b/i },
+  pasta:   { label: 'Pasta & Noodles',     values: /\b(pastas?|noodles?|spaghetti|linguine|fettuccine|penne|rigatoni|cavatappi|tortelloni|ravioli)\b/i },
+  tacos:   { label: 'Tacos & Wraps',       values: /\b(tacos?|burritos?|wraps?|quesadillas?|fajitas?)\b/i },
+  stirfry:   { label: 'Stir-Fry',              values: /\bstir.?fr(?:y|ies)\b/i },
+  onepot:    { label: 'One-Pot / Sheet Pan',   values: /\b(one.?pots?|one.?pans?|sheet.?pans?)\b/i },
+  pizza:     { label: 'Pizza & Flatbread',     values: /\b(pizzas?|flatbreads?)\b/i },
+  sandwich:  { label: 'Sandwiches & Burgers',  values: /\b(sandwich(?:es)?|sandos?|burgers?|hoagies?|subs?|philly|paninis?)\b/i },
+};
+
+function buildDeck() {
+  let pool = [...RECIPES];
+  if (excludedGroups.size > 0) {
+    pool = pool.filter(r => {
+      if (!r.protein) return true;
+      for (const key of excludedGroups) {
+        if (PROTEIN_GROUPS[key].values.test(r.protein)) return false;
+      }
+      return true;
+    });
+  }
+  if (selectedDishTypes.size > 0) {
+    pool = pool.filter(r => {
+      const text = r.name + ' ' + (r.subtitle || '');
+      for (const key of selectedDishTypes) {
+        if (DISH_TYPE_GROUPS[key].values.test(text)) return true;
+      }
+      return false;
+    });
+  }
+  if (selectedCategories.size > 0) {
+    pool = pool.filter(r => {
+      if (!r.cuisine) return false;
+      for (const cat of selectedCategories) {
+        if (CATEGORY_MAP[cat].test(r.cuisine)) return true;
+      }
+      return false;
+    });
+  }
+  if (selectedMaxTime) {
+    pool = pool.filter(r => {
+      const total = (r.prepMin || 0) + (r.cookMin || 0);
+      return total > 0 && total <= selectedMaxTime;
+    });
+  }
+  if (glutenFreeOnly) {
+    pool = pool.filter(r => r.tags && (r.tags.includes('Gluten Free') || r.tags.includes('Gluten-Free Friendly')));
+  }
+  if (maxCalories) {
+    pool = pool.filter(r => r.calories > 0 && r.calories <= maxCalories);
+  }
+  if (minProtein) {
+    pool = pool.filter(r => r.proteinG > 0 && r.proteinG >= minProtein);
+  }
+  if (minFiber) {
+    pool = pool.filter(r => r.fiberG > 0 && r.fiberG >= minFiber);
+  }
+  pool = pool.filter(r => !hiddenIds.has(r.id));
+  if (favoritesOnly) {
+    pool = pool.filter(r => favoritedIds.has(r.id));
+  }
+  deck = shuffle(pool);
+  if (!onboardingDone) deck.unshift({ id: '__onboarding__', _isOnboarding: true });
+  deckIndex = 0;
+  history = [];
+  shopInitialized = false;
+}
+
+function buildOnboardingCard() {
+  const card = document.createElement('div');
+  card.className = 'recipe-card';
+  card.dataset.id = '__onboarding__';
+  card.innerHTML = '<div class="ob-card">'
+    + '<div class="ob-header"><div class="logo">Tinda Fa <span style="color:var(--accent)">Dinna</span></div><div class="ob-tagline">Here\'s how it works</div></div>'
+    + '<div class="ob-body">'
+    + '<div class="ob-swipe-row"><div class="ob-swipe-hint">👈 Swipe left to skip</div><div class="ob-swipe-hint">Swipe right to pick 👉</div></div>'
+    + '<div class="ob-btn-list">'
+    + '<div class="ob-btn-row"><span class="ob-icon">👍</span><div class="ob-label"><strong>Pick it</strong>: add to your menu</div></div>'
+    + '<div class="ob-btn-row"><span class="ob-icon">👎</span><div class="ob-label"><strong>Skip</strong>: see it again later</div></div>'
+    + '<div class="ob-btn-row"><span class="ob-icon">⭐</span><div class="ob-label"><strong>Favorite</strong>: save for later</div></div>'
+    + '<div class="ob-btn-row"><span class="ob-icon">↩</span><div class="ob-label"><strong>Undo</strong>: take back a swipe</div></div>'
+    + '<div class="ob-btn-row"><span class="ob-icon">🗑️</span><div class="ob-label"><strong>Hide forever</strong>: never show again</div></div>'
+    + '</div>'
+    + '<div class="ob-cta">Swipe right to start! →</div>'
+    + '</div></div>'
+    + '<div class="stamp stamp-yes">YES</div><div class="stamp stamp-no">NOPE</div>';
+  return card;
+}
+
+function selectCategory(btn) {
+  const cat = btn.dataset.cat;
+  if (cat === 'all') {
+    selectedCategories.clear();
+  } else if (selectedCategories.has(cat)) {
+    selectedCategories.delete(cat);
+  } else {
+    selectedCategories.add(cat);
+  }
+  syncCategoryChips();
+  buildDeck();
+  renderDeck();
+  showToast('Showing ' + deck.length + ' recipes');
+}
+function syncCategoryChips() {
+  document.querySelectorAll('.cat-chip:not(.fav-chip)').forEach(c => {
+    const cat = c.dataset.cat;
+    if (cat === 'all') c.classList.toggle('active', selectedCategories.size === 0);
+    else c.classList.toggle('active', selectedCategories.has(cat));
+  });
+}
+
+function toggleGlutenFree() {
+  glutenFreeOnly = !glutenFreeOnly;
+  savePrefs();
+  renderPrefsScreen('dietary');
+  updatePrefsCount();
+}
+
+function setMaxCalories(val) {
+  maxCalories = (maxCalories === val) ? null : val; // tap active pill = clear
+  savePrefs();
+  renderPrefsScreen('dietary');
+  updatePrefsCount();
+}
+
+function setMinProtein(val) {
+  minProtein = (minProtein === val) ? null : val; // tap active pill = clear
+  savePrefs();
+  renderPrefsScreen('dietary');
+  updatePrefsCount();
+}
+
+function setMinFiber(val) {
+  minFiber = (minFiber === val) ? null : val; // tap active pill = clear
+  savePrefs();
+  renderPrefsScreen('dietary');
+  updatePrefsCount();
+}
+
+document.querySelectorAll('#pin-screen .pin-key').forEach(btn => btn.addEventListener('click', () => handlePin(btn.dataset.k)));
+
+async function handlePin(k) {
+  if (k === 'del') { pinInput = pinInput.slice(0,-1); }
+  else if (k === '') { return; }
+  else if (pinInput.length < 4) { pinInput += k; }
+  updatePinDots();
+  if (pinInput.length === 4) {
+    const hash = await hashPin(pinInput);
+    const stored = localStorage.getItem('mealplanner_pin_hash');
+    const expected = stored || DEFAULT_PIN_HASH;
+    if (hash === expected) {
+      document.getElementById('pin-error').textContent = '';
+      showPrefs();
+    } else {
+      document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+      pinInput = ''; updatePinDots();
+    }
+  }
+}
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) document.getElementById('d'+i).classList.toggle('filled', i < pinInput.length);
+}
+// "Forgot PIN?" — removes only the custom PIN hash, so login falls back to the
+// default PIN (7539, defined by DEFAULT_PIN_HASH above). Recipes, favorites,
+// picks, and settings are untouched. The toast is intentionally generic and
+// does NOT reveal the default PIN — share it out of band.
+function forgotPin() {
+  if (!confirm('Reset your PIN back to the default?\n\nYour recipes, favorites, picks, and settings will NOT be affected.')) return;
+  localStorage.removeItem('mealplanner_pin_hash');
+  pinInput = '';
+  updatePinDots();
+  document.getElementById('pin-error').textContent = '';
+  showToast('✅ PIN reset to default');
+}
+function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
+function showSwipe() { showScreen('swipe-screen'); renderDeck(); }
+function showPicks() { showScreen('picks-screen'); renderPicks(); }
+function showShop()  {
+  showScreen('shop-screen');
+  if (!shopInitialized) {
+    const items = buildShoppingList();
+    checkedItems = new Set(items.map(i => i.key));
+    shopInitialized = true;
+  }
+  renderShop();
+}
+function showSend()  { showScreen('send-screen'); renderRecipients(); }
+
+function showPrefs(tab) { showScreen('prefs-screen'); renderPrefsScreen(tab || 'proteins'); }
+function applyPrefsAndSwipe() { buildDeck(); showSwipe(); }
+
+function renderPrefsScreen(tab) {
+  tab = tab || 'proteins';
+  document.getElementById('tab-proteins').classList.toggle('active', tab === 'proteins');
+  document.getElementById('tab-dish').classList.toggle('active', tab === 'dish');
+  document.getElementById('tab-dietary').classList.toggle('active', tab === 'dietary');
+  const container = document.getElementById('pref-toggles-container');
+  if (tab === 'proteins') {
+    container.innerHTML = Object.entries(PROTEIN_GROUPS).map(([key, group]) => {
+      const on = !excludedGroups.has(key);
+      return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="toggleProteinGroup(this,\''+key+'\')">'+group.label+'</button>';
+    }).join('');
+  } else if (tab === 'dish') {
+    const hint = '<div class="prefs-subtitle" style="width:100%;font-size:13px;margin-bottom:2px">Tap the dish types you want. Leave all off to see everything.</div>';
+    container.innerHTML = hint + Object.entries(DISH_TYPE_GROUPS).map(([key, group]) => {
+      const on = selectedDishTypes.has(key);
+      return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="toggleDishType(this,\''+key+'\')">'+group.label+'</button>';
+    }).join('');
+  } else {
+    const gfToggle = '<button class="pref-toggle '+(glutenFreeOnly?'active':'excluded')+'" onclick="toggleGlutenFree()">Gluten Free only</button>';
+    const calOptions = [{v:null,l:'Any'},{v:500,l:'&#8804;500'},{v:600,l:'&#8804;600'},{v:700,l:'&#8804;700'}];
+    const calPills = calOptions.map(o => {
+      const on = (maxCalories || null) === o.v;
+      return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="setMaxCalories('+(o.v===null?'null':o.v)+')">'+o.l+'</button>';
+    }).join('');
+    const proOptions = [{v:null,l:'Any'},{v:25,l:'&#8805;25g'},{v:35,l:'&#8805;35g'},{v:45,l:'&#8805;45g'}];
+    const proPills = proOptions.map(o => {
+      const on = (minProtein || null) === o.v;
+      return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="setMinProtein('+(o.v===null?'null':o.v)+')">'+o.l+'</button>';
+    }).join('');
+    const fibOptions = [{v:null,l:'Any'},{v:5,l:'&#8805;5g'},{v:8,l:'&#8805;8g'},{v:12,l:'&#8805;12g'}];
+    const fibPills = fibOptions.map(o => {
+      const on = (minFiber || null) === o.v;
+      return '<button class="pref-toggle '+(on?'active':'excluded')+'" onclick="setMinFiber('+(o.v===null?'null':o.v)+')">'+o.l+'</button>';
+    }).join('');
+    container.innerHTML = gfToggle
+      + '<div class="prefs-section-title" style="width:100%;margin-top:6px">Max Calories</div>'
+      + calPills
+      + '<div class="prefs-section-title" style="width:100%;margin-top:6px">Min Protein</div>'
+      + proPills
+      + '<div class="prefs-section-title" style="width:100%;margin-top:6px">Min Fiber</div>'
+      + fibPills;
+  }
+  updatePrefsCount();
+}
+
+function toggleProteinGroup(btn, key) {
+  if (excludedGroups.has(key)) {
+    excludedGroups.delete(key);
+    btn.className = 'pref-toggle active';
+  } else {
+    excludedGroups.add(key);
+    btn.className = 'pref-toggle excluded';
+  }
+  btn.textContent = PROTEIN_GROUPS[key].label;
+  savePrefs();
+  updatePrefsCount();
+}
+
+function toggleDishType(btn, key) {
+  if (selectedDishTypes.has(key)) {
+    selectedDishTypes.delete(key);
+    btn.className = 'pref-toggle excluded';
+  } else {
+    selectedDishTypes.add(key);
+    btn.className = 'pref-toggle active';
+  }
+  btn.textContent = DISH_TYPE_GROUPS[key].label;
+  savePrefs();
+  updatePrefsCount();
+}
+
+function updatePrefsCount() {
+  let pool = [...RECIPES];
+  if (excludedGroups.size > 0) {
+    pool = pool.filter(r => {
+      if (!r.protein) return true;
+      for (const key of excludedGroups) {
+        if (PROTEIN_GROUPS[key].values.test(r.protein)) return false;
+      }
+      return true;
+    });
+  }
+  if (selectedDishTypes.size > 0) {
+    pool = pool.filter(r => {
+      const text = r.name + ' ' + (r.subtitle || '');
+      for (const key of selectedDishTypes) {
+        if (DISH_TYPE_GROUPS[key].values.test(text)) return true;
+      }
+      return false;
+    });
+  }
+  if (glutenFreeOnly) {
+    pool = pool.filter(r => r.tags && (r.tags.includes('Gluten Free') || r.tags.includes('Gluten-Free Friendly')));
+  }
+  if (maxCalories) {
+    pool = pool.filter(r => r.calories > 0 && r.calories <= maxCalories);
+  }
+  if (minProtein) {
+    pool = pool.filter(r => r.proteinG > 0 && r.proteinG >= minProtein);
+  }
+  if (minFiber) {
+    pool = pool.filter(r => r.fiberG > 0 && r.fiberG >= minFiber);
+  }
+  document.getElementById('prefs-count').innerHTML = '<strong>'+pool.length.toLocaleString()+'</strong> of '+RECIPES.length.toLocaleString()+' recipes will appear';
+}
+
+function selectTime(btn) {
+  document.querySelectorAll('.time-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  selectedMaxTime = parseInt(btn.dataset.t) || null;
+  buildDeck();
+  renderDeck();
+  showToast('Showing ' + deck.length + ' recipes');
+}
+
+function renderDeck() {
+  const stack = document.getElementById('card-stack');
+  stack.innerHTML = '';
+  updateProgress();
+  const remaining = deck.slice(deckIndex);
+  if (!remaining.length) {
+    stack.innerHTML = '<div class="empty-deck"><div class="big">🎉</div><div>All done swiping!</div><button class="view-picks-btn" onclick="showPicks()">View '+picks.length+' picked meals</button></div>';
+    return;
+  }
+  const visible = remaining.slice(0,3).reverse();
+  visible.forEach((recipe, i) => {
+    const isTop = i === visible.length - 1;
+    const card = buildCard(recipe, isTop);
+    if (isTop) card.classList.add('is-top');
+    card.style.transform = 'scale('+(1-(visible.length-1-i)*0.03)+') translateY('+((visible.length-1-i)*8)+'px)';
+    card.style.zIndex = i;
+    if (!isTop) card.style.pointerEvents = 'none';
+    stack.appendChild(card);
+    if (isTop) currentCardEl = card;
+  });
+  const topRecipe = deck[deckIndex];
+  const faveBtn = document.getElementById('btn-fave');
+  if (faveBtn && topRecipe) faveBtn.classList.toggle('active', favoritedIds.has(topRecipe.id));
+}
+
+function buildCard(recipe, interactive) {
+  if (recipe._isOnboarding) {
+    const card = buildOnboardingCard();
+    if (interactive) setupDrag(card);
+    return card;
+  }
+  const card = document.createElement('div');
+  card.className = 'recipe-card';
+  card.dataset.id = recipe.id;
+  const totalMin = (recipe.prepMin||0) + (recipe.cookMin||0);
+  const timeStr = totalMin ? totalMin+' min' : '';
+  const safeLink = recipe.cardLink && recipe.cardLink.startsWith('https://') ? recipe.cardLink : null;
+  card.innerHTML = dishArt(recipe, 72)
+    + '<button class="card-trash" onclick="event.stopPropagation();neverRecipe()" aria-label="Hide recipe">🗑️</button>'
+    + '<button class="fav-star'+(favoritedIds.has(recipe.id)?' active':'')+'" onclick="event.stopPropagation();faveRecipe()" aria-label="Toggle favorite">★</button>'
+    + '<div class="card-body">'
+    + '<div class="card-text-block">'
+    + '<div class="card-name">'+esc(recipe.name)+'</div>'
+    + (recipe.subtitle ? '<div class="card-sub">'+esc(recipe.subtitle)+'</div>' : '')
+    + '</div>'
+    + '<div class="card-chips">'
+    + (recipe.protein ? '<span class="chip protein">'+esc(recipe.protein)+'</span>' : '')
+    + (recipe.cuisine ? '<span class="chip">'+esc(recipe.cuisine)+'</span>' : '')
+    + (timeStr ? '<span class="chip time">⏱ '+esc(timeStr)+'</span>' : '')
+    + (recipe.calories ? '<span class="chip">🔥 '+esc(recipe.calories)+' cal</span>' : '')
+    + (recipe.proteinG ? '<span class="chip">💪 '+esc(recipe.proteinG)+'g protein</span>' : '')
+    + (recipe.fiberG ? '<span class="chip">🌾 '+esc(recipe.fiberG)+'g fiber</span>' : '')
+    + '</div>'
+    + (safeLink ? '<a class="card-recipe-link" href="'+safeLink+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">📄 Recipe Card</a>' : '')
+    + '</div>'
+    + '<div class="stamp stamp-yes">YES</div><div class="stamp stamp-no">NOPE</div>';
+  if (interactive) setupDrag(card);
+  return card;
+}
+
+function updateProgress() {
+  const rem = deck.length - deckIndex;
+  document.getElementById('swipe-progress').textContent = deckIndex+' swiped · '+picks.length+' picked · '+rem+' remaining';
+  document.getElementById('picks-badge').textContent = picks.length+' picked';
+}
+
+function setupDrag(card) {
+  let startX, startY, curX = 0, curY = 0, active = false, axis = null;
+  const stampY = card.querySelector('.stamp-yes'), stampN = card.querySelector('.stamp-no');
+  function onStart(e) {
+    const pt = e.touches ? e.touches[0] : e;
+    startX = curX = pt.clientX; startY = curY = pt.clientY; active = true; axis = null;
+  }
+  function onMove(e) {
+    if (!active) return;
+    const pt = e.touches ? e.touches[0] : e;
+    curX = pt.clientX; curY = pt.clientY;
+    const dx = curX-startX, dy = curY-startY;
+    if (axis === null) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      axis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+      if (axis === 'h') card.classList.add('dragging');
+    }
+    if (axis === 'v') return;       // let the page scroll vertically
+    e.preventDefault();             // horizontal swipe: take over the gesture
+    card.style.transform = 'translate('+dx+'px,'+dy+'px) rotate('+(dx*0.06)+'deg)';
+    const pct = Math.min(Math.abs(dx)/80,1);
+    if (dx>0) { stampY.style.opacity=pct; stampN.style.opacity=0; }
+    else { stampN.style.opacity=pct; stampY.style.opacity=0; }
+  }
+  function onEnd() {
+    if (!active) return; active = false;
+    card.classList.remove('dragging');
+    if (axis !== 'h') { axis = null; return; }
+    axis = null;
+    const dx = curX - startX;
+    if (Math.abs(dx) > 80) { commitSwipe(dx > 0 ? 'right' : 'left'); }
+    else {
+      card.style.transition = 'transform .3s';
+      card.style.transform = '';
+      stampY.style.opacity = stampN.style.opacity = 0;
+      setTimeout(() => card.style.transition='', 300);
+    }
+  }
+  card.addEventListener('mousedown', onStart);
+  card.addEventListener('touchstart', onStart, {passive:false});
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('touchmove', onMove, {passive:false});
+  document.addEventListener('mouseup', onEnd);
+  document.addEventListener('touchend', onEnd);
+}
+
+function swipeCard(dir) { if (currentCardEl) commitSwipe(dir); }
+function commitSwipe(dir) {
+  if (deckIndex >= deck.length) return;
+  const recipe = deck[deckIndex];
+  if (recipe._isOnboarding) {
+    onboardingDone = true;
+    localStorage.setItem('mealplanner_onboarded', '1');
+    currentCardEl.classList.add(dir === 'right' ? 'fly-right' : 'fly-left');
+    deckIndex++;
+    setTimeout(() => renderDeck(), 350);
+    return;
+  }
+  history.push({recipe, dir, deckIndex});
+  currentCardEl.classList.add(dir==='right' ? 'fly-right' : 'fly-left');
+  if (dir === 'right') { picks.push(recipe); shopInitialized = false; savePrefs(); showToast('♥ Added to menu!'); }
+  deckIndex++;
+  setTimeout(() => renderDeck(), 350);
+}
+function neverRecipe() {
+  if (deckIndex >= deck.length) return;
+  const recipe = deck[deckIndex];
+  if (recipe._isOnboarding) { commitSwipe('left'); return; }
+  hiddenIds.add(recipe.id);
+  savePrefs();
+  history.push({recipe, dir: 'never', deckIndex});
+  currentCardEl.classList.add('fly-left');
+  deckIndex++;
+  showToast('🚫 Hidden');
+  setTimeout(() => renderDeck(), 350);
+}
+function faveRecipe() {
+  if (deckIndex >= deck.length) return;
+  const recipe = deck[deckIndex];
+  const alreadyFaved = favoritedIds.has(recipe.id);
+  if (alreadyFaved) { favoritedIds.delete(recipe.id); showToast('Unfavorited'); }
+  else { favoritedIds.add(recipe.id); showToast('⭐ Favorited!'); }
+  savePrefs();
+  history.push({recipe, dir: alreadyFaved ? 'unfave' : 'fave', deckIndex});
+  document.getElementById('btn-fave').classList.toggle('active', favoritedIds.has(recipe.id));
+  const star = currentCardEl && currentCardEl.querySelector('.fav-star');
+  if (star) star.classList.toggle('active', favoritedIds.has(recipe.id));
+}
+function toggleFavoritesOnly(btn) {
+  favoritesOnly = !favoritesOnly;
+  btn.classList.toggle('active', favoritesOnly);
+  buildDeck(); renderDeck();
+  showToast(favoritesOnly ? '⭐ Favorites only · ' + deck.length + ' recipes' : 'Showing ' + deck.length + ' recipes');
+}
+function undoSwipe() {
+  if (!history.length) return;
+  const last = history.pop();
+  if (last.dir === 'right')  { picks = picks.filter(p => p.id !== last.recipe.id); shopInitialized = false; savePrefs(); }
+  if (last.dir === 'never')  { hiddenIds.delete(last.recipe.id);    savePrefs(); }
+  if (last.dir === 'fave')   { favoritedIds.delete(last.recipe.id); savePrefs(); }
+  if (last.dir === 'unfave') { favoritedIds.add(last.recipe.id);    savePrefs(); }
+  deckIndex = last.deckIndex;
+  renderDeck(); showToast('↩ Undone');
+}
+
+function renderPicks() {
+  const el = document.getElementById('picks-list');
+  if (!picks.length) { el.innerHTML = '<div class="empty-picks">No meals picked yet.<br>Go back and swipe! 👆</div>'; return; }
+  el.innerHTML = picks.map(r => {
+    const baseServings = parseInt(r.servings) || 2;
+    const totalServings = recipeServings[r.id] != null ? recipeServings[r.id] : baseServings;
+    const safeLink = r.cardLink && r.cardLink.startsWith('https://') ? r.cardLink : null;
+    return '<div class="pick-item">'
+    + dishArt(r, 30, 'width:88px;height:88px;border-radius:10px;flex-shrink:0;')
+    + '<div class="pick-info"><div class="pick-name">'+esc(r.name)+'</div><div class="pick-meta">'+esc([r.protein,r.cuisine].filter(Boolean).join(' · '))+'</div>'
+    + (safeLink ? '<a class="chip chip-pdf" href="'+safeLink+'" target="_blank" rel="noopener" style="display:inline-flex;margin-top:6px;">📄 Recipe Card</a>' : '')
+    + '</div>'
+    + '<button class="pick-remove" onclick="removePick('+r.id+')">✕</button>'
+    + '<div class="servings-stepper">'
+    + '<button class="pick-fav'+(favoritedIds.has(r.id)?' active':'')+'" onclick="event.stopPropagation();toggleFavFromPicks('+r.id+')" aria-label="Toggle favorite">★</button>'
+    + '<span style="font-size:13px;color:var(--text2);margin-left:auto;margin-right:2px;">Servings:</span>'
+    + '<button class="stepper-btn" style="width:30px;height:30px;font-size:20px;" onclick="event.stopPropagation();changeMultiplier('+r.id+',-1)">−</button>'
+    + '<span style="font-size:16px;font-weight:700;color:var(--text);min-width:32px;text-align:center;">'+totalServings+'</span>'
+    + '<button class="stepper-btn" style="width:30px;height:30px;font-size:20px;" onclick="event.stopPropagation();changeMultiplier('+r.id+',1)">+</button>'
+    + '</div>'
+    + '</div>';
+  }).join('');
+}
+function removePick(id) { picks = picks.filter(p => p.id !== id); delete recipeServings[id]; shopInitialized = false; savePrefs(); renderPicks(); updateProgress(); }
+function toggleFavFromPicks(id) {
+  if (favoritedIds.has(id)) { favoritedIds.delete(id); showToast('Unfavorited'); }
+  else { favoritedIds.add(id); showToast('⭐ Favorited!'); }
+  savePrefs();
+  renderPicks();
+}
+function clearAllPicks() {
+  if (!picks.length) { showToast('No meals to clear'); return; }
+  if (!confirm('Clear all ' + picks.length + ' meals from your menu?')) return;
+  picks = [];
+  recipeServings = {};
+  shopInitialized = false;
+  savePrefs();
+  renderPicks();
+  updateProgress();
+  showToast('🗑️ Menu cleared');
+}
+// Restore picked meals (and their serving sizes) from a previous session.
+function restorePicks() {
+  try {
+    const raw = localStorage.getItem('mealplanner_prefs');
+    if (!raw) return;
+    const prefs = JSON.parse(raw);
+    if (Array.isArray(prefs.pickIds) && prefs.pickIds.length) {
+      const byId = new Map(RECIPES.map(r => [r.id, r]));
+      picks = prefs.pickIds.map(id => byId.get(id)).filter(Boolean);
+    }
+    if (prefs.recipeServings && typeof prefs.recipeServings === 'object') {
+      recipeServings = prefs.recipeServings;
+    }
+  } catch (e) { /* ignore corrupt storage */ }
+}
+function changeMultiplier(id, delta) {
+  const r = picks.find(p => p.id === id);
+  const base = parseInt((r && r.servings)) || 2;
+  const cur = recipeServings[id] != null ? recipeServings[id] : base;
+  const next = Math.max(1, Math.min(20, cur + delta));
+  recipeServings[id] = next;
+  shopInitialized = false;
+  savePrefs();
+  renderPicks();
+}
+
+function fmtAmt(n) {
+  return parseFloat(n.toFixed(2)).toString();
+}
+function buildShoppingList() {
+  const agg = {};
+  picks.forEach(r => {
+    const base = parseInt(r.servings) || 2;
+    const desired = recipeServings[r.id] != null ? recipeServings[r.id] : base;
+    const mult = desired / base;
+    (r.ingredients||[]).forEach(ing => {
+      const q = (r.qty||{})[ing];
+      const unit = q && q.amount != null ? (q.unit || '') : '';
+      const key = ing.toLowerCase().trim() + '|' + unit;
+      if (!agg[key]) agg[key] = {label:ing, unit:unit, amount:0, count:0, hasQty:false, key:key, recipes:[]};
+      agg[key].count += mult;
+      if (q && q.amount != null) { agg[key].amount += q.amount * mult; agg[key].hasQty = true; }
+      if (!agg[key].recipes.includes(r.name)) agg[key].recipes.push(r.name);
+    });
+  });
+  return Object.values(agg).sort((a,b) => a.label.localeCompare(b.label));
+}
+
+function renderShop() {
+  const el = document.getElementById('shop-list');
+  const items = buildShoppingList();
+  if (!items.length) { el.innerHTML = '<div class="empty-picks" style="margin-top:40px">Pick some meals first!</div>'; return; }
+  const cats = {'🥩 Proteins':[],'🥦 Produce':[],'🥛 Dairy':[],'🍚 Grains & Starches':[],'🌶 Sauces & Condiments':[],'🧂 Pantry':[]};
+  items.forEach(item => {
+    const l = item.label;
+    if (/\b(chicken|pork|beef|steak|shrimp|turkey|tofu|lamb|sausage|ground)\b/i.test(l)) cats['🥩 Proteins'].push(item);
+    else if (/\b(garlic|onion|scallion|carrot|zucchini|spinach|kale|tomato|pepper|broccoli|mushroom|cucumber|lime|lemon|apple|peach|mango|corn|avocado|cabbage|celery|arugula|asparagus|bok choy|green bean|pea|edamame|ginger|parsley|cilantro|basil|thyme|rosemary|oregano|grape|fig)\b/i.test(l)) cats['🥦 Produce'].push(item);
+    else if (/\b(cheese|butter|cream|milk|sour cream|feta|mozzarella|parmesan|ricotta|ranch)\b/i.test(l)) cats['🥛 Dairy'].push(item);
+    else if (/\b(rice|pasta|noodle|couscous|tortilla|bread|biscuit|pita|bun|roll|panko|breadcrumb|flour|ravioli|tortelloni|cavatappi|spaghetti|tostada)\b/i.test(l)) cats['🍚 Grains & Starches'].push(item);
+    else if (/\b(sauce|glaze|mayo|ketchup|mustard|vinegar|soy|hoisin|sriracha|hot sauce|pesto|salsa|jam|miso|chili sauce|bulgogi|curry|tahini|hummus|oil)\b/i.test(l)) cats['🌶 Sauces & Condiments'].push(item);
+    else cats['🧂 Pantry'].push(item);
+  });
+  el.innerHTML = Object.entries(cats).filter(([,v])=>v.length).map(([cat,citems]) =>
+    '<div class="shop-group"><div class="shop-group-title">'+cat+'</div>'
+    + citems.map(item => {
+        const k = item.key;
+        const on = checkedItems.has(k);
+        const qtyText = item.hasQty
+          ? ' <span style="color:var(--text2);font-size:12px">'+fmtAmt(item.amount)+(item.unit?' '+item.unit:'')+'</span>'
+          : (item.count>1?' <span style="color:var(--text2);font-size:12px">(x'+item.count+')</span>':'');
+        return '<div class="shop-item'+(on?' checked':'')+'" data-key="'+esc(k)+'" onclick="toggleItemByEl(this)">'
+          + '<div class="shop-check'+(on?' on':'')+'"></div>'
+          + '<div class="shop-item-text">'+esc(item.label)+qtyText
+          + '<div class="shop-item-recipes">'+item.recipes.map(esc).join('<br>')+'</div></div></div>';
+      }).join('')
+    + '</div>'
+  ).join('');
+  updateShopSummary(items);
+}
+
+function toggleItemByEl(el) { toggleItem(el, el.dataset.key); }
+function toggleItem(el, key) {
+  if (checkedItems.has(key)) { checkedItems.delete(key); el.classList.remove('checked'); el.querySelector('.shop-check').classList.remove('on'); }
+  else { checkedItems.add(key); el.classList.add('checked'); el.querySelector('.shop-check').classList.add('on'); }
+  updateShopSummary(buildShoppingList());
+}
+function updateShopSummary(items) {
+  const toBuy = checkedItems.size;
+  document.getElementById('shop-summary').textContent = toBuy+' to buy · '+(items.length - toBuy)+' already have · '+items.length+' total';
+}
+
+function renderRecipients() {
+  const el = document.getElementById('recipient-list');
+  if (!el) return;
+  el.innerHTML = recipients.length
+    ? recipients.map((email, i) =>
+        '<div class="email-row"><span>📬 ' + esc(email) + '</span>'
+        + '<button class="email-row-remove" onclick="removeRecipient(' + i + ')">✕</button></div>'
+      ).join('')
+    : '<div style="font-size:13px;color:var(--text2);padding:6px 0">No recipients — add one below.</div>';
+}
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function addRecipient() {
+  const input = document.getElementById('recipient-input');
+  const val = (input.value || '').trim().toLowerCase();
+  if (!val || !EMAIL_RE.test(val)) { showToast('Enter a valid email'); return; }
+  if (recipients.includes(val)) { showToast('Already added'); input.value = ''; return; }
+  recipients.push(val);
+  savePrefs();
+  input.value = '';
+  renderRecipients();
+  showToast('✅ Added');
+}
+function removeRecipient(i) {
+  recipients.splice(i, 1);
+  savePrefs();
+  renderRecipients();
+}
+
+async function sendEmail() {
+  const btn = document.getElementById('send-btn'), status = document.getElementById('send-status');
+  if (!picks.length) { status.textContent = '⚠️ Add some meals before sending.'; return; }
+  if (!recipients.length) { status.textContent = '⚠️ Add at least one recipient.'; return; }
+  btn.disabled = true; status.textContent = 'Sending…';
+  const items = buildShoppingList();
+  const needed = items.filter(i => checkedItems.has(i.key));
+  const fmtItem = i => '• '+i.label+(i.hasQty?' — '+fmtAmt(i.amount)+(i.unit?' '+i.unit:''):(i.count>1?' (x'+i.count+')':''));
+  const fmtMeal = (r,i) => (i+1)+'. '+r.name+(r.cardLink ? '\n   '+r.cardLink : '');
+  const haveRaw = items.filter(i=>!checkedItems.has(i.key)).map(i=>'• '+i.label).join('\n');
+  const templateParams = {
+    subject: '🍽 Meal Plan for the Week ('+picks.length+' meals)',
+    meals: picks.map(fmtMeal).join('\n'),
+    shopping_list: needed.map(fmtItem).join('\n'),
+    have_list: haveRaw,
+    meal_count: picks.length, item_count: needed.length
+  };
+  if (!emailReady) {
+    status.textContent = '❌ Email service unavailable. Check your connection.';
+    btn.disabled = false;
+    return;
+  }
+  try {
+    await Promise.all(recipients.map(to_email =>
+      emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { ...templateParams, to_email })
+    ));
+    status.textContent = '✅ Sent! Check your inboxes.'; showToast('✅ Emails sent!'); btn.disabled = false;
+  } catch(e) { status.textContent = '❌ Error sending. Try again.'; btn.disabled = false; }
+}
+
+function resetHiddenRecipes() {
+  hiddenIds = new Set();
+  savePrefs();
+  updatePrefsCount();
+  showToast('✅ Hidden recipes restored');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(showToast._t); showToast._t = setTimeout(()=>t.classList.remove('show'), 2000);
+}
+
+// --- Setup screen (first-launch email collection) ---
+let setupEmails = [];
+function renderSetupEmailList() {
+  document.getElementById('setup-email-list').innerHTML = setupEmails.length
+    ? setupEmails.map((e, i) =>
+        '<div class="email-row"><span>📬 ' + esc(e) + '</span>'
+        + '<button class="email-row-remove" onclick="setupRemoveEmail(' + i + ')">✕</button></div>'
+      ).join('')
+    : '';
+}
+function setupAddEmail() {
+  const input = document.getElementById('setup-email-input');
+  const val = (input.value || '').trim().toLowerCase();
+  const errEl = document.getElementById('setup-email-error');
+  if (!val || !EMAIL_RE.test(val)) { errEl.textContent = 'Enter a valid email'; return; }
+  if (setupEmails.includes(val)) { errEl.textContent = 'Already added'; input.value = ''; return; }
+  errEl.textContent = '';
+  setupEmails.push(val);
+  input.value = '';
+  renderSetupEmailList();
+}
+function setupRemoveEmail(i) { setupEmails.splice(i, 1); renderSetupEmailList(); }
+function setupFinish() {
+  if (!setupEmails.length) { document.getElementById('setup-email-error').textContent = 'Add at least one email to continue.'; return; }
+  recipients = [...setupEmails];
+  savePrefs();
+  showPrefs();
+}
+
+// --- Change PIN screen ---
+let changePinInput = '', changePinNew = '', changePinStep = 'new';
+function showChangePin() {
+  changePinInput = ''; changePinNew = ''; changePinStep = 'new';
+  document.getElementById('change-pin-subtitle').textContent = 'Enter your new 4-digit PIN';
+  document.getElementById('change-pin-error').textContent = '';
+  updateChangePinDots();
+  showScreen('change-pin-screen');
+}
+function updateChangePinDots() {
+  for (let i = 0; i < 4; i++) document.getElementById('cpd' + i).classList.toggle('filled', i < changePinInput.length);
+}
+async function handleChangePin(k) {
+  if (k === 'del') { changePinInput = changePinInput.slice(0, -1); }
+  else if (k === '') { return; }
+  else if (changePinInput.length < 4) { changePinInput += k; }
+  updateChangePinDots();
+  if (changePinInput.length === 4) {
+    if (changePinStep === 'new') {
+      changePinNew = changePinInput; changePinInput = ''; changePinStep = 'confirm';
+      document.getElementById('change-pin-subtitle').textContent = 'Confirm your new PIN';
+      document.getElementById('change-pin-error').textContent = '';
+      updateChangePinDots();
+    } else {
+      if (changePinInput === changePinNew) {
+        localStorage.setItem('mealplanner_pin_hash', await hashPin(changePinInput));
+        showPrefs(); showToast('✅ PIN updated');
+      } else {
+        document.getElementById('change-pin-error').textContent = 'PINs did not match. Try again.';
+        changePinInput = ''; changePinNew = ''; changePinStep = 'new';
+        document.getElementById('change-pin-subtitle').textContent = 'Enter your new 4-digit PIN';
+        updateChangePinDots();
+      }
+    }
+  }
+}
+
+restorePicks();
+buildDeck();
+renderDeck();
+</script>
+</body>
+</html>
